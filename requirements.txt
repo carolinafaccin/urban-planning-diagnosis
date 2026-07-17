@@ -1,0 +1,31 @@
+# Dependências dos scripts em scripts/. Ativar o venv do repositório e
+# instalar com: pip install -r requirements.txt
+
+# 01_download_osm.py
+osmnx==2.1.0
+overpy==0.7
+
+# base geoespacial (usada por quase todos os scripts)
+geopandas==1.1.4
+pandas==3.0.3
+shapely==2.1.2
+pyarrow==25.0.0
+
+# 02_download_ibge.py (dicionários .xlsx do catálogo)
+openpyxl==3.1.5
+
+# 03_overture_edificacoes.py
+overturemaps==1.0.1
+duckdb==1.5.4
+
+# 04_cnefe.py, 05_h3_dasimetrico.py, 08_queimadas.py, gee_centroides_res10.py
+h3==4.5.0
+
+# 06_mapbiomas.py, 07_cool_cities.py (estatística zonal de rasters)
+rasterio==1.5.0
+rasterstats==0.21.0
+
+# scripts/report/ (relatório estático)
+matplotlib==3.11.0
+mapclassify==2.10.0
+jinja2==3.1.6

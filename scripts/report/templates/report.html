@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diagnóstico urbanístico — {{ cidade }}</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>Diagnóstico territorial urbanístico</h1>
+    <p class="sub">{{ cidade }} · gerado em {{ data }}</p>
+  </header>
+
+  <section class="resumo">
+    <div class="stat"><span class="num">{{ n_hex }}</span><span class="lbl">hexágonos (H3 res10)</span></div>
+    {% if n_pop is not none %}
+    <div class="stat"><span class="num">{{ n_pop }}</span><span class="lbl">com população</span></div>
+    {% endif %}
+    {% for classe, q in dist.items() %}
+    <div class="stat prio-{{ loop.index }}"><span class="num">{{ q }}</span><span class="lbl">prioridade {{ classe }}</span></div>
+    {% endfor %}
+  </section>
+
+  <main class="grade">
+    {% for c in cards %}
+    <figure class="card">
+      <img src="{{ c.img }}" alt="{{ c.titulo }}" loading="lazy">
+      <figcaption>
+        <h2>{{ c.titulo }}</h2>
+        <p>{{ c.descricao }}</p>
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </main>
+
+  <footer class="rodape">
+    <p>Visualização rápida gerada a partir do GeoPackage do projeto. Para a
+    análise detalhada, abra o <code>.gpkg</code> no QGIS.</p>
+  </footer>
+</body>
+</html>

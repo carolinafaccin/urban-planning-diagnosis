@@ -1,0 +1,181 @@
+"""
+02_download_ibge.py
+-------------------
+O que faz   : Monta a camada de setores censitários da área de estudo, com
+              os indicadores do Censo 2022 usados nos mapas 7, 8, 9 e 15 e
+              no score de prioridade do 11_analises.py.
+Camadas     : setores_censitarios
+Fonte       : Catálogo raw_dir/ibge/censo/2022/ (nada é baixado — os dados
+              já estão no catálogo geral):
+              - setores_censitarios/br_setores.gpkg      (malha, EPSG:5880)
+              - entorno_domicilios/agregados_por_setor/entorno_domicilios.csv
+              - agregados_por_setores/t1/renda_responsavel.csv
+Saída       : {DATA_DIR}/ibge.gpkg — camada única, reprojetada para
+              CRS_PROJETO.
+Para adaptar: ajuste BBOX e IBGE_COD_MUN no config.py. Nada aqui é
+              específico de Campinas — a malha e os CSVs são nacionais.
+
+Notas sobre os dados
+--------------------
+- A malha nacional tem 1,4 GB e ~473 mil setores. O filtro por BBOX usa o
+  índice espacial do GeoPackage (~10s); um filtro por atributo (`where=`)
+  força varredura da tabela inteira e leva vários minutos, sobretudo com o
+  catálogo no Google Drive. Não troque um pelo outro.
+- O bloco "entorno dos domicílios" do Censo só foi aplicado em uma parte
+  dos setores (~341 mil de ~473 mil). Setores fora da amostra ficam com os
+  indicadores de entorno nulos — é esperado, não é erro. O script reporta
+  quantos ficaram sem dado.
+- Os percentuais de entorno são sobre DOMICÍLIOS (variáveis V050xx). Existe
+  no catálogo uma série paralela por MORADORES (V052xx, em
+  percentuais_por_setor_gpkg/) — não misturar as duas.
+- `renda_media_norm` é a renda média invertida e normalizada [0,1] DENTRO da
+  área de estudo (maior = mais vulnerável), como o 11_analises.py espera.
+  Por ser relativa ao recorte, não é comparável entre projetos.
+
+Como rodar  : a partir da pasta do projeto (onde está o config.py):
+              cd projetos/campinas
+              python ../../scripts/pipeline/02_download_ibge.py
+"""
+
+import sys
+from pathlib import Path
+
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import box
+
+sys.path.insert(0, str(Path.cwd()))
+from config import (  # noqa: E402
+    BBOX,
+    CRS_PROJETO,
+    CRS_WGS84,
+    DATA_DIR,
+    IBGE_COD_MUN,
+    MUNICIPIO,
+    RAW_CATALOG,
+)
+
+IBGE_GPKG_PATH = DATA_DIR / "ibge.gpkg"
+
+CENSO_DIR = RAW_CATALOG / "ibge" / "censo" / "2022"
+MALHA_PATH = CENSO_DIR / "setores_censitarios" / "br_setores.gpkg"
+ENTORNO_PATH = CENSO_DIR / "entorno_domicilios" / "agregados_por_setor" / "entorno_domicilios.csv"
+RENDA_PATH = CENSO_DIR / "agregados_por_setores" / "t1" / "renda_responsavel.csv"
+
+# Variáveis do bloco "entorno dos domicílios" (contagem de domicílios).
+# Ver _dicionario_entorno_domicilios.xlsx no catálogo.
+ENTORNO_VARS = {
+    "v05000": "domicilios_entorno",   # total de domicílios pesquisados no entorno
+    "v05007": "dom_sem_pavimento",    # via pavimentada - NÃO
+    "v05013": "dom_sem_ilum",         # iluminação pública - NÃO
+    "v05022": "dom_sem_calcada",      # calçada - NÃO
+    "v05030": "dom_sem_arb",          # arborização - SEM ÁRVORES
+}
+
+# Variáveis de renda do responsável. Ver _dicionario_de_dados_renda_responsavel.xlsx
+RENDA_VARS = {
+    "v06001": "responsaveis",         # pessoas responsáveis
+    "v06002": "moradores",            # moradores
+    "v06004": "renda_media",          # rendimento nominal médio mensal do responsável (R$)
+}
+
+# Percentuais derivados: nome final -> numerador
+PERCENTUAIS = {
+    "pct_sem_arb": "dom_sem_arb",
+    "pct_sem_ilum": "dom_sem_ilum",
+    "pct_sem_calcada": "dom_sem_calcada",
+    "pct_sem_pavimento": "dom_sem_pavimento",
+}
+
+
+def carregar_malha():
+    """Lê os setores que intersectam o BBOX, via índice espacial da malha."""
+    print(f"Lendo malha de setores (filtro espacial pelo BBOX)...\n  {MALHA_PATH}")
+    caixa = gpd.GeoSeries(
+        [box(BBOX["west"], BBOX["south"], BBOX["east"], BBOX["north"])], crs=CRS_WGS84
+    )
+    gdf = gpd.read_file(MALHA_PATH, bbox=caixa)
+    print(f"  {len(gdf)} setores intersectam a área de estudo.")
+
+    fora = gdf.loc[gdf["cd_mun"] != IBGE_COD_MUN, "nm_mun"].unique()
+    if len(fora):
+        print(
+            f"  AVISO: o BBOX alcança outro(s) município(s) além de {MUNICIPIO}: "
+            f"{', '.join(map(str, fora))}. Os setores foram mantidos — se não for "
+            f"intencional, ajuste o BBOX no config.py."
+        )
+    return gdf
+
+
+def carregar_tabela(caminho, variaveis, **kwargs):
+    """Lê um CSV do catálogo trazendo só as colunas de interesse, já renomeadas.
+
+    Lê tudo como texto e converte à mão porque `decimal=","` não é confiável
+    aqui: renda_responsavel.csv usa vírgula decimal mas tem células com lixo
+    (uma vírgula solta em v06004). Basta uma para o pandas desistir da coluna
+    inteira e devolvê-la como texto — e aí um to_numeric direto zeraria todos
+    os valores válidos, silenciosamente.
+    """
+    colunas = ["cd_setor", *variaveis]
+    df = pd.read_csv(caminho, usecols=colunas, dtype=str, **kwargs)
+    for col in variaveis:
+        df[col] = pd.to_numeric(df[col].str.replace(",", ".", regex=False), errors="coerce")
+    return df.rename(columns=variaveis)
+
+
+def normalizar_invertido(serie):
+    """Min-max invertido para [0, 1]: o menor valor vira 1 (mais vulnerável)."""
+    minimo, maximo = serie.min(), serie.max()
+    if pd.isna(minimo) or maximo == minimo:
+        return pd.Series(0.0, index=serie.index)
+    return (maximo - serie) / (maximo - minimo)
+
+
+def main():
+    setores = carregar_malha()
+
+    print("Lendo entorno dos domicílios (Censo 2022)...")
+    entorno = carregar_tabela(ENTORNO_PATH, ENTORNO_VARS, sep=";")
+
+    print("Lendo renda do responsável (Censo 2022)...")
+    renda = carregar_tabela(RENDA_PATH, RENDA_VARS, sep=",")
+
+    setores = setores.merge(entorno, on="cd_setor", how="left")
+    setores = setores.merge(renda, on="cd_setor", how="left")
+
+    # Percentuais de entorno. O denominador é o total de domicílios
+    # pesquisados no entorno — nulo/zero nos setores fora da amostra.
+    total = setores["domicilios_entorno"].replace(0, pd.NA)
+    for destino, origem in PERCENTUAIS.items():
+        setores[destino] = setores[origem] / total * 100
+
+    # Renda invertida e normalizada — o que o 11_analises.py usa como vuln_social
+    setores["renda_media_norm"] = normalizar_invertido(setores["renda_media"])
+
+    sem_entorno = int(setores["domicilios_entorno"].isna().sum())
+    if sem_entorno:
+        print(
+            f"  {sem_entorno} de {len(setores)} setores estão fora da amostra de "
+            f"entorno do Censo — indicadores de entorno ficaram nulos (esperado)."
+        )
+    sem_renda = int(setores["renda_media"].isna().sum())
+    if sem_renda:
+        print(f"  {sem_renda} de {len(setores)} setores sem dado de renda.")
+
+    setores = setores.to_crs(CRS_PROJETO)
+    setores.to_file(IBGE_GPKG_PATH, layer="setores_censitarios", driver="GPKG")
+    print(
+        f"\n  [setores_censitarios] {len(setores)} feições salvas em "
+        f"{IBGE_GPKG_PATH} (camada 'setores_censitarios')"
+    )
+
+    resumo = setores[["pct_sem_arb", "pct_sem_ilum", "renda_media"]].describe()
+    print("\nResumo dos indicadores na área de estudo:")
+    print(resumo.round(1).to_string())
+
+
+if __name__ == "__main__":
+    print(f"Área de estudo (WGS84): {BBOX}")
+    print(f"Destino: {IBGE_GPKG_PATH}\n")
+    main()
+    print("\nConcluído.")

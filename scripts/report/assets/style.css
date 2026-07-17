@@ -1,0 +1,87 @@
+:root {
+  --tinta:   #1a1a1a;
+  --suave:   #6b6b6b;
+  --linha:   #e6e6e6;
+  --fundo:   #fafafa;
+  --card:    #ffffff;
+  --acento:  #e31a1c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  color: var(--tinta);
+  background: var(--fundo);
+  line-height: 1.5;
+}
+
+.topo {
+  padding: 2.5rem 2rem 1.5rem;
+  border-bottom: 1px solid var(--linha);
+  background: var(--card);
+}
+.topo h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+.topo .sub { margin: 0.3rem 0 0; color: var(--suave); font-size: 0.95rem; }
+
+.resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--linha);
+  background: var(--card);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 6.5rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+}
+.stat .num { font-size: 1.5rem; font-weight: 700; }
+.stat .lbl { font-size: 0.8rem; color: var(--suave); }
+.prio-1 { border-left: 4px solid #e31a1c; }
+.prio-2 { border-left: 4px solid #fd8d3c; }
+.prio-3 { border-left: 4px solid #fecc5c; }
+.prio-4 { border-left: 4px solid #ffffb2; }
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.card {
+  margin: 0;
+  background: var(--card);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.card img { width: 100%; height: auto; display: block; background: #fff; }
+.card figcaption { padding: 0.9rem 1.1rem 1.2rem; }
+.card h2 { margin: 0 0 0.3rem; font-size: 1.05rem; }
+.card p { margin: 0; font-size: 0.88rem; color: var(--suave); }
+
+.rodape {
+  padding: 1.5rem 2rem 3rem;
+  color: var(--suave);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.rodape code { background: #eee; padding: 0.1em 0.4em; border-radius: 4px; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tinta: #ececec; --suave: #9a9a9a; --linha: #2a2a2a;
+    --fundo: #121212; --card: #1b1b1b;
+  }
+  .rodape code { background: #2a2a2a; }
+}

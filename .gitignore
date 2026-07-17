@@ -1,0 +1,24 @@
+# Ambiente Python
+venv/
+__pycache__/
+*.pyc
+
+# Caminhos locais da máquina (data_dir / raw_dir)
+config/config.local.json
+
+# macOS
+.DS_Store
+
+# Dados: todos os dados do projeto (brutos, locais, solicitados,
+# processados, GeoPackage final) ficam FORA do repositório, nos caminhos
+# definidos em config/config.local.json (data_dir/raw_dir). O repo guarda
+# só código. As regras abaixo são rede de segurança caso algum script
+# grave localmente por engano.
+projetos/**/data/
+projetos/**/cache/
+**/cache/
+*.gpkg
+
+# Documentos de referência em formato original (pesados) — as versões em
+# Markdown ficam versionadas em planejamento-produtos/<cidade>/ref/md/
+projetos/*/ref/
