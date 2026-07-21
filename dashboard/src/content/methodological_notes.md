@@ -34,3 +34,29 @@ diferentes** (bairros, municípios) sem recalibração. Um hexágono "muito alta
 prioridade" em um projeto pequeno reflete o que é mais crítico *dentro
 daquele recorte*, não necessariamente um valor absoluto comparável a outro
 território.
+
+### Fontes de dados
+
+O diagnóstico combina dados nacionais/globais com dados municipais (da
+prefeitura), quando disponíveis e mais precisos — o dado municipal nunca
+substitui edificações, viário ou censo, que são sempre de fonte
+nacional/global.
+
+- **OpenStreetMap (OSM)** — viário, edificações mapeadas, pontos de ônibus,
+  ciclovias e parques.
+- **IBGE — Censo Demográfico 2022** — setores censitários e CNEFE (Cadastro
+  Nacional de Endereços para Fins Estatísticos), usados na interpolação
+  dasimétrica de renda e uso do solo.
+- **Overture Maps** — edificações (detecção por machine learning), usadas no
+  cálculo de impermeabilização.
+- **MapBiomas (Coleção 10)** — cobertura e uso do solo.
+- **Cool Cities Lab (WRI)** — temperatura de superfície, cobertura vegetal e
+  conforto térmico (UTCI), com fallback para o Google Earth Engine em
+  cidades sem cobertura do Cool Cities Lab.
+- **INPE** — focos de queimadas.
+- **Dados municipais (prefeitura)**, quando disponíveis — por exemplo, áreas
+  verdes, hidrografia e equipamentos públicos mapeados pelo poder público
+  local. Usados como fonte preferencial em indicadores específicos (ex.:
+  cobertura verde) e como camadas complementares no GeoPackage. A
+  proveniência de cada camada municipal fica documentada no catálogo de
+  dados brutos do projeto (fora deste site).

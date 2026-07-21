@@ -192,8 +192,18 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
   impressão), e markdown (`AnaliseArea`/`MethodologyNotes`) estilizado com a
   classe `.prose-notes` (tokens da marca em `index.css`) em vez do plugin
   `@tailwindcss/typography` — mesma escolha do repo-irmão, que usa a mesma
-  técnica. Diferente do repo-irmão: sem router/múltiplas páginas (site de um
-  projeto só) e sem mapas interativos (decisão já registrada acima).
+  técnica. Diferente do repo-irmão: sem mapas interativos (decisão já
+  registrada acima) e roteamento reduzido ao mínimo (ver abaixo) — site de um
+  projeto só, não um explorador multi-município.
+- **Rodapé fixo** (`Footer.tsx`, `fixed inset-x-0 bottom-0`) — sempre visível
+  na tela, com o link para as notas metodológicas. O conteúdo principal
+  reserva espaço (`FOOTER_SPACER` em `App.tsx`) para não ficar escondido
+  atrás dele; ambos escondidos na impressão (`print:hidden`/`print:static`).
+- **Roteamento por hash** (`router.ts`, `useRoute()`): só 2 telas —
+  diagnóstico (`#/`) e notas metodológicas (`#/notas`, página dedicada, não
+  mais uma seção na rolagem). Mesmo padrão (`hashchange`) do
+  `climate-injustice-index/dashboard/src/router.ts`, sem lib de rotas — não
+  adicionar `react-router` aqui, o app não precisa disso.
 - `ImageZoom.tsx`: miniatura clicável → modal com a imagem ampliada e um
   link de download do PNG original. Usado em `MapCard.tsx` e
   `SinteseSection.tsx`.

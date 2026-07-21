@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-wri-line bg-slate-50 px-5 py-3 print:hidden">
+    <footer className="fixed inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-wri-line bg-slate-50 px-5 py-3 print:static print:hidden">
       <img
         src={`${import.meta.env.BASE_URL}wri-brasil-logo-k.png`}
         alt="WRI Brasil"
@@ -31,8 +31,8 @@ export default function Footer() {
         >
           Política de Privacidade e Proteção de Dados
         </a>
-        <a href="#metodologia" className="underline underline-offset-2 hover:text-wri-ink">
-          Notas Metodológicas
+        <a href="#/notas" className="underline underline-offset-2 hover:text-wri-ink">
+          Notas metodológicas
         </a>
         <span className="text-wri-muted/70">© WRI Brasil {new Date().getFullYear()}</span>
       </nav>

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useReport } from "./data";
+import { useRoute } from "./router";
 import TopBar from "./components/TopBar";
 import Hero from "./components/Hero";
 import StatsBar from "./components/StatsBar";
@@ -10,12 +11,23 @@ import DownloadData from "./components/DownloadData";
 import MethodologyNotes from "./components/MethodologyNotes";
 import Footer from "./components/Footer";
 
+// Rodapé fixo (ver Footer.tsx) — o espaço reservado aqui evita que o
+// conteúdo fique escondido atrás dele. Generoso o bastante para o rodapé
+// quebrar em até 2 linhas em telas estreitas.
+const FOOTER_SPACER = "pb-28 sm:pb-16";
+
 export default function App() {
   const { report, loading, error } = useReport();
+  const [route] = useRoute();
 
   useEffect(() => {
-    if (report) document.title = `Diagnóstico territorial urbanístico — ${report.cidade}`;
-  }, [report]);
+    if (report) {
+      document.title =
+        route === "notas"
+          ? `Notas metodológicas — ${report.cidade}`
+          : `Diagnóstico territorial urbanístico — ${report.cidade}`;
+    }
+  }, [report, route]);
 
   if (loading) return <main className="p-8 text-wri-muted">Carregando…</main>;
   if (error || !report) {
@@ -26,13 +38,31 @@ export default function App() {
     );
   }
 
+  if (route === "notas") {
+    return (
+      <>
+        <TopBar cidade={report.cidade} />
+        <div className={`mx-auto max-w-3xl px-4 ${FOOTER_SPACER}`}>
+          <a
+            href="#/"
+            className="mt-6 inline-block text-sm text-wri-muted underline underline-offset-2 hover:text-wri-ink"
+          >
+            ← Voltar ao diagnóstico
+          </a>
+          <MethodologyNotes />
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
   const sintese = report.cards.find((c) => c.id === "prioridade");
   const outrosMapas = report.cards.filter((c) => c.id !== "prioridade");
 
   return (
     <>
       <TopBar cidade={report.cidade} />
-      <div className="mx-auto max-w-5xl px-4">
+      <div className={`mx-auto max-w-5xl px-4 ${FOOTER_SPACER}`}>
         <Hero cidade={report.cidade} data={report.data} />
         <StatsBar report={report} />
         <AnaliseArea analiseMd={report.analise_md} />
@@ -48,7 +78,6 @@ export default function App() {
           </div>
         </section>
         <DownloadData gpkgArquivo={report.gpkg_arquivo} gpkgTamanhoMb={report.gpkg_tamanho_mb} />
-        <MethodologyNotes />
       </div>
       <Footer />
     </>
