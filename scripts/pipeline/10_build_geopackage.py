@@ -9,12 +9,13 @@ O que faz   : Consolida tudo no GeoPackage final do projeto. Junta os
               único .gpkg pronto para o QGIS.
 Camadas     : h3_indicadores (hexágonos com todos os indicadores, sem score)
               + viario, edificacoes, setores_censitarios, pontos_onibus,
-                ciclovia, parques_osm, as camadas municipais e locais que
-                existirem
+                ciclovia, parques_osm, app_corregos, as camadas municipais e
+                locais que existirem
               + _metadados
 Saída       : {DATA_DIR}/{PROJECT_NAME}.gpkg
-Requer      : 05 (h3_base) e, idealmente, 06/07/08/03/03b/06b. Enriquecimentos
-              ausentes são só avisados — o build segue com o que existe.
+Requer      : 05 (h3_base) e, idealmente, 06/07/08/03/03b/03c/06b.
+              Enriquecimentos ausentes são só avisados — o build segue com
+              o que existe.
 
 Viário: se {DATA_DIR}/viario_enriquecido.gpkg existir (gerado pelo
 03b_dados_municipais.py quando há classificacao_viaria municipal), ele é
@@ -72,6 +73,7 @@ VETORES = [
     (DATA_DIR / "osm.gpkg", "pontos_onibus"),
     (DATA_DIR / "ibge.gpkg", "setores_censitarios"),
     (EDIF_GPKG_PATH, "edificacoes"),
+    (DATA_DIR / "app_corregos.gpkg", "app_corregos"),  # opcional (03c)
 ]
 
 

@@ -20,8 +20,11 @@ Ajuste OVERTURE_CONF_MIN no config.py.
 
 Cache
 -----
-O download bruto (lento) é cacheado em processed/overture_raw.parquet. Reexecuções
-filtram do cache sem rebaixar. Apague o cache para forçar novo download.
+O download bruto (lento) é cacheado em processed/overture_raw_<hash do bbox>.parquet
+— o nome inclui um hash do BBOX para que uma mudança de bbox (comum ao ajustar
+a área de estudo) nunca sirva silenciosamente o cache de outra área; cada bbox
+tem seu próprio arquivo. Reexecuções com o mesmo bbox filtram do cache sem
+rebaixar. Apague o(s) arquivo(s) para forçar novo download.
 
 A fração construída por hexágono (pct_construido, p/ o score) é calculada no
 10_build_geopackage.py, que tem a malha H3 — este script só entrega a camada.
@@ -32,6 +35,8 @@ Como rodar  : cd projetos/campinas
               python ../../scripts/pipeline/03_overture_edificacoes.py
 """
 
+import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -49,7 +54,11 @@ from config import (  # noqa: E402
 )
 
 EDIF_GPKG_PATH = DATA_DIR / "edificacoes.gpkg"
-RAW_CACHE = PROCESSED_DIR / "overture_raw.parquet"
+
+# Hash curto do bbox no nome do cache — muda automaticamente se a área de
+# estudo mudar, para nunca servir silenciosamente o cache de outro bbox.
+_BBOX_HASH = hashlib.sha1(json.dumps(BBOX, sort_keys=True).encode()).hexdigest()[:8]
+RAW_CACHE = PROCESSED_DIR / f"overture_raw_{_BBOX_HASH}.parquet"
 
 
 def baixar_bruto():

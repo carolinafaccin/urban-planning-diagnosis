@@ -35,13 +35,15 @@ PAGES_BRANCH  = "bassoli"
 # ----------------------------------------------------------------------
 # Área de estudo
 # ----------------------------------------------------------------------
-# Área de estudo em Campinas/SP. Delimitada à mão no Mapbox Location Helper
-# (labs.mapbox.com/location-helper), cobrindo ~2,0 km (L-O) x ~2,2 km (N-S).
+# Área de estudo em Campinas/SP. Redesenhada em 2026-07-21 (2ª versão) para
+# conter `area_de_projeto.geojson` com folga em todos os lados — a bbox
+# anterior cortava ~77 m da borda sul da área de projeto. Cobre ~2,4 km (L-O)
+# x ~2,6 km (N-S). Vértices em raw/local/bouding-box_vertices.geojson.
 BBOX = {
-    "north": -22.95058,
-    "south": -22.97025,
-    "east":  -47.18615,
-    "west":  -47.20624,
+    "north": -22.950285,
+    "south": -22.973754,
+    "east":  -47.185533,
+    "west":  -47.212916,
 }
 
 CRS_PROJETO = "EPSG:31983"  # SIRGAS 2000 / UTM zona 23S — CRS de saída do projeto
@@ -65,6 +67,17 @@ RAIO_ANCORA  = 450  # metros — referência de caminhabilidade
 # (Google/Microsoft Open Buildings). Edificações do OpenStreetMap são
 # mantidas independentemente (mapeamento humano, sem score de ML).
 OVERTURE_CONF_MIN = 0.75
+
+# ----------------------------------------------------------------------
+# APP de córregos (Código Florestal) — usado no 03c_app_corregos.py
+# ----------------------------------------------------------------------
+# Largura mínima de Área de Preservação Permanente (Lei 12.651/2012, Art. 4º,
+# inciso I), medida a partir da hidrografia disponível (municipal, senão
+# OSM). 30 m é a faixa para cursos d'água com menos de 10 m de largura — o
+# caso mais comum em córregos urbanos como o Itajaí. Ajuste se souber a
+# largura real do curso d'água do seu projeto (10-50m -> 50m, 50-200m ->
+# 100m, 200-600m -> 200m, >600m -> 500m).
+APP_LARGURA_MIN = 30  # metros
 
 # ----------------------------------------------------------------------
 # Mapa síntese (H3) — usado nos scripts 05_h3_dasimetrico.py e 11_analises.py

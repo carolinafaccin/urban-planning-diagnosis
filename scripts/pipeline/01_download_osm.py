@@ -2,11 +2,16 @@
 01_download_osm.py
 -------------------
 O que faz   : Baixa dados do OpenStreetMap para a área definida no config.py.
-Camadas     : viario, edificacoes_osm, pontos_onibus, ciclovia, parques_osm
+Camadas     : viario, edificacoes_osm, pontos_onibus, ciclovia, parques_osm,
+              hidrografia_osm
 Fonte       : OpenStreetMap via osmnx (viário, edificações, ciclovias,
-              parques) e overpy (pontos de ônibus, via consulta Overpass QL
-              direta — cobre tanto highway=bus_stop quanto
+              parques, hidrografia) e overpy (pontos de ônibus, via consulta
+              Overpass QL direta — cobre tanto highway=bus_stop quanto
               public_transport=platform).
+
+`hidrografia_osm` é o fallback nacional/global de hidrografia — usado pelo
+03c_app_corregos.py só quando não há hidrografia municipal (03b). Sempre
+baixada aqui (barata), mesmo que acabe não sendo usada.
 Saída       : {DATA_DIR}/osm.gpkg — uma camada por feature, já reprojetada
               para CRS_PROJETO.
 Para adaptar: ajuste BBOX e MUNICIPIO no config.py. Verifique a cobertura
@@ -106,6 +111,17 @@ def baixar_parques():
     salvar_camada(gdf, "parques_osm")
 
 
+def baixar_hidrografia():
+    print("Baixando hidrografia (rios, córregos)...")
+    try:
+        gdf = ox.features_from_bbox(
+            OSMNX_BBOX, tags={"waterway": ["river", "stream", "canal", "drain", "ditch"]}
+        )
+    except InsufficientResponseError:
+        gdf = None
+    salvar_camada(gdf, "hidrografia_osm")
+
+
 def baixar_pontos_onibus():
     """Usa overpy (Overpass QL direto) para pegar highway=bus_stop e
     public_transport=platform numa única consulta."""
@@ -142,6 +158,7 @@ if __name__ == "__main__":
     baixar_edificacoes()
     baixar_ciclovias()
     baixar_parques()
+    baixar_hidrografia()
     baixar_pontos_onibus()
 
     print("\nConcluído.")
