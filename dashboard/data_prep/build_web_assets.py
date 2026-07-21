@@ -41,9 +41,18 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import geopandas as gpd  # noqa: E402
+from shapely.geometry import box  # noqa: E402
 
 sys.path.insert(0, str(Path.cwd()))
-from config import CRS_PROJETO, GPKG_PATH, LOCAL_DATA_DIR, MUNICIPIO, REPORT_DIR  # noqa: E402
+from config import (  # noqa: E402
+    BBOX,
+    CRS_PROJETO,
+    CRS_WGS84,
+    GPKG_PATH,
+    LOCAL_DATA_DIR,
+    MUNICIPIO,
+    REPORT_DIR,
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = SCRIPT_DIR.parent
@@ -60,6 +69,14 @@ def slug(texto):
 
 
 CIDADE_SLUG = slug(MUNICIPIO)
+
+# Contorno do BBOX do projeto (config.py, WGS84) reprojetado uma vez para o
+# CRS do projeto — desenhado em todos os mapas para dar contexto de até onde
+# vai a área de estudo (ver base_ax).
+BBOX_BOUNDARY = (
+    gpd.GeoSeries([box(BBOX["west"], BBOX["south"], BBOX["east"], BBOX["north"])], crs=CRS_WGS84)
+    .to_crs(CRS_PROJETO)
+)
 
 # Mapas a renderizar. kind: "categorico" | "continuo".
 #   col       : coluna de h3_sintese
@@ -112,6 +129,9 @@ def base_ax(hexg, contexto):
     ax.set_axis_off()
     if contexto.get("viario") is not None:
         contexto["viario"].plot(ax=ax, color="#bbbbbb", linewidth=0.3, zorder=1)
+    # Contorno do bbox por cima do mapa (zorder alto) — contextualiza a área de
+    # estudo mesmo quando a malha H3 não cobre o bbox inteiro (bordas rurais).
+    BBOX_BOUNDARY.boundary.plot(ax=ax, color="#333333", linewidth=0.9, linestyle="--", zorder=3)
     return fig, ax
 
 
