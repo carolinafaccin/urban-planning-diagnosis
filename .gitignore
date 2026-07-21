@@ -22,3 +22,12 @@ projetos/**/cache/
 # Documentos de referência em formato original (pesados) — as versões em
 # Markdown ficam versionadas em planejamento-produtos/<cidade>/ref/md/
 projetos/*/ref/
+
+# dashboard/ (site React/Vite) — node_modules e build são reprodutíveis;
+# public/data/ é gerado por dashboard/data_prep/build_web_assets.py a partir
+# do data_dir (mesma regra de "nada de dado entra no git" do resto do repo).
+dashboard/node_modules/
+dashboard/dist/
+dashboard/public/data/
+dashboard/.wrangler/
+.wrangler/

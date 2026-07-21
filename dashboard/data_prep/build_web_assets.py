@@ -1,27 +1,29 @@
 """
-generate_report.py
--------------------
-O que faz   : Gera um relatório estático (HTML + imagens PNG) a partir do
-              GeoPackage final do projeto, para visualização rápida dos mapas
-              antes de refinar a estética no QGIS/Python.
-Saída       : {REPORT_DIR}/  (fora do git)
-                index.html
-                assets/style.css
-                imgs/<cidade>/<mapa>.png
+build_web_assets.py
+--------------------
+O que faz   : Gera os assets do site (dashboard/) a partir do GeoPackage final
+              do projeto: os mesmos mapas PNG que o antigo generate_report.py
+              produzia, mais um report.json com estatísticas e a análise
+              descritiva da área. Depois sincroniza tudo para
+              dashboard/public/data/ (limpando antes de copiar), de onde o
+              Vite serve os arquivos em dev/build.
+Saída       : {REPORT_DIR}/ (fora do git): report.json, imgs/*.png
+              dashboard/public/data/ (gitignored): cópia do acima
 Requer      : 10_build_geopackage.py e 11_analises.py já rodados.
 
-Deploy-agnóstico: gera arquivos estáticos com caminhos relativos. Aponte o
-Cloudflare Pages (ou outro host) para {REPORT_DIR}. Como fica fora do git, não
-entra em nenhum commit — publique por upload direto (ex.: `wrangler pages
-deploy <REPORT_DIR>`), não por "servir do repositório".
+A análise descritiva da área (texto específico do projeto, não genérico) vem
+de {LOCAL_DATA_DIR}/analise_area.md — mesmo lugar de outros inputs manuais do
+projeto (ver 09_dados_locais.py). Leitura tolerante: se não existir, o campo
+fica vazio e o site mostra a seção só quando o texto existir.
 
-Para adaptar: a lista MAPAS abaixo controla quais camadas/indicadores viram
-              figura. Mapas cujo indicador não existe no GeoPackage são pulados.
+Para adaptar: a lista MAPAS controla quais camadas/indicadores viram figura.
+              Mapas cujo indicador não existe no GeoPackage são pulados.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/report/generate_report.py
+              python ../../dashboard/data_prep/build_web_assets.py
 """
 
+import json
 import shutil
 import sys
 import unicodedata
@@ -33,14 +35,15 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import geopandas as gpd  # noqa: E402
-from jinja2 import Environment, FileSystemLoader  # noqa: E402
 
 sys.path.insert(0, str(Path.cwd()))
-from config import CRS_PROJETO, GPKG_PATH, MUNICIPIO, REPORT_DIR  # noqa: E402
+from config import CRS_PROJETO, GPKG_PATH, LOCAL_DATA_DIR, MUNICIPIO, REPORT_DIR  # noqa: E402
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-TMPL_DIR = SCRIPT_DIR / "templates"
-CSS_SRC = SCRIPT_DIR / "assets" / "style.css"
+DASHBOARD_DIR = SCRIPT_DIR.parent
+PUBLIC_DATA_DIR = DASHBOARD_DIR / "public" / "data"
+
+ANALISE_AREA_MD = LOCAL_DATA_DIR / "analise_area.md"
 
 DPI = 140
 
@@ -144,12 +147,33 @@ def render_categorico(hexg, contexto, m, out_png):
     return m["col"]
 
 
+def ler_analise_area():
+    """Leitura tolerante: se o arquivo não existir, avisa e segue (mesmo
+    padrão de 09_dados_locais.py) — o site mostra a seção só quando houver
+    texto."""
+    if not ANALISE_AREA_MD.exists():
+        print(f"  [aviso] análise da área não encontrada: {ANALISE_AREA_MD}")
+        return ""
+    return ANALISE_AREA_MD.read_text(encoding="utf-8")
+
+
+def sincronizar_public_data():
+    """Copia REPORT_DIR para dashboard/public/data/, limpando antes (não
+    overwrite silencioso) para não vazar PNGs de um projeto anterior testado
+    na mesma máquina."""
+    if PUBLIC_DATA_DIR.exists():
+        shutil.rmtree(PUBLIC_DATA_DIR)
+    shutil.copytree(REPORT_DIR, PUBLIC_DATA_DIR)
+
+
 def main():
     hexg, contexto = carregar()
-    imgs_dir = REPORT_DIR / "imgs" / CIDADE_SLUG
+    # Limpa REPORT_DIR antes de escrever — evita misturar com resíduos de
+    # formatos antigos (ex.: imgs/<cidade>/ do generate_report.py aposentado).
+    if REPORT_DIR.exists():
+        shutil.rmtree(REPORT_DIR)
+    imgs_dir = REPORT_DIR / "imgs"
     imgs_dir.mkdir(parents=True, exist_ok=True)
-    (REPORT_DIR / "assets").mkdir(parents=True, exist_ok=True)
-    shutil.copy(CSS_SRC, REPORT_DIR / "assets" / "style.css")
 
     cards = []
     for m in MAPAS:
@@ -159,26 +183,33 @@ def main():
         if ok is None:
             print(f"  [pulado] {m['id']}: coluna '{m['col']}' ausente ou vazia.")
             continue
-        cards.append(dict(titulo=m["titulo"],
-                          img=f"imgs/{CIDADE_SLUG}/{m['id']}.png",
+        cards.append(dict(id=m["id"], titulo=m["titulo"],
+                          img=f"imgs/{m['id']}.png",
                           descricao=m["descricao"]))
         print(f"  [ok] {m['id']} → {out_png.name}")
 
     # estatísticas do cabeçalho
-    n = len(hexg)
+    n_hex = len(hexg)
     n_pop = int(hexg["tem_populacao"].sum()) if "tem_populacao" in hexg.columns else None
     dist = (hexg["prioridade"].value_counts().reindex(["muito alta", "alta", "média", "baixa"])
             if "prioridade" in hexg.columns else None)
 
-    env = Environment(loader=FileSystemLoader(str(TMPL_DIR)), autoescape=True)
-    html = env.get_template("report.html").render(
-        cidade=MUNICIPIO, data=date.today().isoformat(),
-        n_hex=n, n_pop=n_pop,
-        dist=(dist.to_dict() if dist is not None else {}),
+    report = dict(
+        cidade=MUNICIPIO,
+        data=date.today().isoformat(),
+        n_hex=n_hex,
+        n_pop=n_pop,
+        dist=(dist.dropna().astype(int).to_dict() if dist is not None else {}),
         cards=cards,
+        analise_md=ler_analise_area(),
     )
-    (REPORT_DIR / "index.html").write_text(html, encoding="utf-8")
-    print(f"\n  Relatório: {REPORT_DIR / 'index.html'}  ({len(cards)} mapas)")
+    (REPORT_DIR / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"\n  report.json: {REPORT_DIR / 'report.json'}  ({len(cards)} mapas)")
+
+    sincronizar_public_data()
+    print(f"  Sincronizado para {PUBLIC_DATA_DIR}")
 
 
 if __name__ == "__main__":

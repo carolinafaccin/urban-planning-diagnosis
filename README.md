@@ -1,8 +1,13 @@
 # Diagnóstico Territorial Urbanístico
 
-Produto geoespacial de **diagnóstico territorial urbanístico** — mapas
-temáticos e análises descritivas que identificam onde intervenções de
-adaptação climática têm maior impacto potencial num território.
+Produto geoespacial de **diagnóstico territorial urbanístico**: um pipeline
+que constrói um GeoPackage por projeto (o entregável principal, para uso em
+QGIS), gerando vários mapas temáticos, uma análise descritiva textual da
+área analisada e um mapa-síntese final (um score de prioridade que
+identifica onde intervenções de adaptação climática têm maior impacto
+potencial). Complementarmente, um site (`dashboard/`) apresenta esse
+diagnóstico — bônus para gestores locais e para a equipe, além de servir de
+prática de visualização de dados.
 
 O produto é replicável: os scripts são genéricos e servem a qualquer
 cidade, bairro ou loteamento — só o `config.py` do projeto muda. O projeto
@@ -13,15 +18,20 @@ de exemplo configurado no repositório é **Campinas/SP**.
 ## Estrutura
 
 ```text
-diagnosticos-urbanisticos/
+urban-planning-diagnosis/
 ├── config/
 │   ├── config.example.json     # template — copiar para config.local.json
 │   └── config.local.json       # seus caminhos locais (fora do git)
 │
 ├── scripts/                    # genéricos — servem a qualquer cidade
-│   ├── pipeline/               # 01_… a 11_…  (constroem o GeoPackage)
-│   ├── gee/                    # fallback LST/NDVI + catálogo nacional res10
-│   └── report/                 # gerador do relatório estático (jinja2)
+│   ├── pipeline/                # 01_… a 11_…  (constroem o GeoPackage)
+│   └── gee/                     # fallback LST/NDVI + catálogo nacional res10
+│
+├── dashboard/                  # site React (Vite+TS+Tailwind) — diagnóstico
+│   ├── data_prep/                # Python: GeoPackage → report.json + PNGs
+│   ├── src/                      # componentes do site
+│   ├── public/data/               # gerado por data_prep (fora do git)
+│   └── deploy.py                  # build + publica no Cloudflare Pages
 │
 ├── projetos/
 │   └── campinas/
@@ -97,7 +107,8 @@ python ../../scripts/pipeline/01_download_osm.py
 
 ```bash
 cp -r projetos/campinas projetos/<nova_cidade>
-# edite o config.py: PROJECT_NAME, MUNICIPIO, UF, IBGE_COD_MUN, BBOX, ANCORA_*
+# edite o config.py: PROJECT_NAME, MUNICIPIO, UF, IBGE_COD_MUN, BBOX, ANCORA_*,
+# PAGES_PROJECT/PAGES_BRANCH (site do novo projeto)
 # (não copie a pasta ref/ — ela é específica do projeto de origem)
 
 cd projetos/<nova_cidade>
@@ -135,12 +146,60 @@ base do catálogo nacional res10: `gee_centroides_res10.py` (gera o CSV de
 centróides) → `gee_lst_ndvi_res10.js` (roda no GEE) → `gee_ingest_res10.py`
 (traz o resultado como `h3_gee.parquet`).
 
-**`scripts/report/`** — gera um relatório estático (HTML + imagens) a partir do
-GeoPackage final, para visualização rápida dos mapas. Saída no `data_dir`
-(fora do git), deploy-agnóstico.
-
 CRS de saída padrão: `EPSG:31983` (SIRGAS 2000 / UTM 23S) — parâmetro do
 `config.py`.
+
+---
+
+## Site (`dashboard/`)
+
+Site React (Vite + TypeScript + Tailwind) que apresenta o diagnóstico:
+estatísticas, mapa-síntese (score de prioridade), os demais mapas temáticos,
+a análise descritiva da área e as notas metodológicas. Mesmo "modo de
+execução" adotado no projeto irmão `climate-injustice-index` — um único
+jeito de trabalhar entre os dois repositórios.
+
+```bash
+# 1. Gerar os dados do site (a partir da pasta do projeto)
+cd projetos/campinas
+python ../../dashboard/data_prep/build_web_assets.py
+
+# 2. Front-end
+cd ../../dashboard
+npm install
+npm run dev              # http://localhost:5173
+```
+
+`dashboard/public/data/` (report.json + PNGs) é gerado pelo passo 1 e é
+**gitignored** — regenerável, não sincroniza pelo GitHub. O que é
+compartilhado entre máquinas (Mac/Windows) é o GeoPackage de origem, que já
+fica no `data_dir` do Google Drive.
+
+A análise descritiva da área (texto específico do projeto, não genérico) vem
+de `{LOCAL_DATA_DIR}/analise_area.md` — mesmo lugar de outros inputs manuais
+do projeto. Leitura tolerante: se não existir, a seção simplesmente não
+aparece no site.
+
+### Design system
+
+Os componentes visuais (`Button`, `Card`, `KpiCard`...) vêm do
+`@wri-brasil/design-system` (repositório próprio, privado, instalado via
+`github:carolinafaccin/wri-brasil-design-system` no `package.json`). Ver
+`dashboard/.npmrc` e a seção de pegadinhas no `CLAUDE.md` — dependências git
+exigem configuração extra em npm 12+.
+
+### Deploy
+
+```bash
+cd projetos/campinas
+python ../../dashboard/deploy.py
+```
+
+Builda o site e publica no Cloudflare Pages, no branch do projeto atual (um
+único Pages project guarda-chuva, um branch por projeto/bbox — vira
+`<PAGES_BRANCH>.<PAGES_PROJECT>.pages.dev`, valores em `config.py`). O
+acesso é restrito por Cloudflare Access (allowlist de e-mails), configurado
+uma vez no painel Zero Trust.
 
 ---
 
