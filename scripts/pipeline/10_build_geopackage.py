@@ -9,11 +9,19 @@ O que faz   : Consolida tudo no GeoPackage final do projeto. Junta os
               único .gpkg pronto para o QGIS.
 Camadas     : h3_indicadores (hexágonos com todos os indicadores, sem score)
               + viario, edificacoes, setores_censitarios, pontos_onibus,
-                ciclovia, parques_osm e as camadas locais que existirem
+                ciclovia, parques_osm, as camadas municipais e locais que
+                existirem
               + _metadados
 Saída       : {DATA_DIR}/{PROJECT_NAME}.gpkg
-Requer      : 05 (h3_base) e, idealmente, 06/07/08/03. Enriquecimentos
+Requer      : 05 (h3_base) e, idealmente, 06/07/08/03/03b/06b. Enriquecimentos
               ausentes são só avisados — o build segue com o que existe.
+
+Viário: se {DATA_DIR}/viario_enriquecido.gpkg existir (gerado pelo
+03b_dados_municipais.py quando há classificacao_viaria municipal), ele é
+usado no lugar do viário puro do osm.gpkg — mesma topologia OSM, com a coluna
+extra pmc_classifica anexada (primeira fonte existente vence, mesmo
+mecanismo do 11_analises.py::INDICADORES). A camada municipal nunca substitui
+a topologia, só a enriquece.
 
 O score de prioridade e as análises derivadas ficam no 11_analises.py, que lê
 h3_indicadores e grava h3_sintese neste mesmo .gpkg.
@@ -42,6 +50,8 @@ from config import (  # noqa: E402
 
 H3_GPKG_PATH = DATA_DIR / "h3.gpkg"
 EDIF_GPKG_PATH = DATA_DIR / "edificacoes.gpkg"
+VIARIO_ENRIQUECIDO_PATH = DATA_DIR / "viario_enriquecido.gpkg"
+MUNICIPAIS_GPKG_PATH = DATA_DIR / "municipais.gpkg"
 
 # Enriquecimentos por hexágono (parquet, chaveados por h3_id)
 ENRIQUECIMENTOS = [
@@ -49,11 +59,14 @@ ENRIQUECIMENTOS = [
     PROCESSED_DIR / "h3_cool_cities.parquet",
     PROCESSED_DIR / "h3_queimadas.parquet",
     PROCESSED_DIR / "h3_gee.parquet",  # opcional (fallback GEE)
+    PROCESSED_DIR / "h3_municipal.parquet",  # opcional (fallback municipal)
 ]
 
-# Camadas vetoriais a copiar: (gpkg de origem, nome da camada)
+# Camadas vetoriais a copiar: (gpkg de origem, nome da camada). O viário
+# prefere a versão enriquecida com classificação municipal, se existir
+# (primeira fonte existente vence — nunca as duas ao mesmo tempo).
 VETORES = [
-    (DATA_DIR / "osm.gpkg", "viario"),
+    (VIARIO_ENRIQUECIDO_PATH if VIARIO_ENRIQUECIDO_PATH.exists() else DATA_DIR / "osm.gpkg", "viario"),
     (DATA_DIR / "osm.gpkg", "parques_osm"),
     (DATA_DIR / "osm.gpkg", "ciclovia"),
     (DATA_DIR / "osm.gpkg", "pontos_onibus"),
@@ -117,11 +130,22 @@ def main():
                           "fonte": origem.name, "gerado_em": str(date.today())})
         print(f"  [{camada}] {len(gdf)} feições copiadas")
 
+    # Camadas municipais (o que o 03b tiver produzido) — 'viario' fica de fora
+    # daqui porque já foi resolvido em VETORES (enriquecido ou não).
+    if MUNICIPAIS_GPKG_PATH.exists():
+        import pyogrio
+        for camada in pyogrio.list_layers(MUNICIPAIS_GPKG_PATH)[:, 0]:
+            gdf = gpd.read_file(MUNICIPAIS_GPKG_PATH, layer=camada).to_crs(CRS_PROJETO)
+            gdf.to_file(GPKG_PATH, layer=camada, driver="GPKG")
+            metadados.append({"camada": camada, "n_feicoes": len(gdf),
+                              "fonte": "municipal (PMC)", "gerado_em": str(date.today())})
+            print(f"  [{camada}] {len(gdf)} feições (municipal)")
+
     # Camadas locais (o que o 09 tiver produzido)
     locais = DATA_DIR / "locais.gpkg"
     if locais.exists():
-        import fiona
-        for camada in fiona.listlayers(locais):
+        import pyogrio
+        for camada in pyogrio.list_layers(locais)[:, 0]:
             gdf = gpd.read_file(locais, layer=camada).to_crs(CRS_PROJETO)
             gdf.to_file(GPKG_PATH, layer=camada, driver="GPKG")
             metadados.append({"camada": camada, "n_feicoes": len(gdf),

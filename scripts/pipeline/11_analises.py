@@ -22,7 +22,11 @@ renormalizados. A coluna `tem_populacao` distingue os dois casos, e
 `score_social`/`score_fisico` ficam separados para leitura no QGIS.
 
 Cada indicador aceita mais de uma fonte (ex.: LST do Cool Cities OU do GEE),
-então o mesmo script serve a cidades com e sem Cool Cities.
+então o mesmo script serve a cidades com e sem Cool Cities. Mesmo mecanismo
+usado para preferir dado MUNICIPAL sobre nacional/global quando disponível
+(ver `deficit_verde`: `municipal_pct_verde`, do 06b_indicadores_municipais.py,
+vem primeiro — cidade sem dado municipal cai para Cool Cities/GEE igual a
+antes). Ver framework de 3 categorias no CLAUDE.md.
 
 Para adaptar: ajuste H3_PESOS no config.py. As fontes de cada indicador estão
               em INDICADORES abaixo (primeira coluna existente vence).
@@ -55,7 +59,7 @@ from config import (  # noqa: E402
 #   social    : True se depende de população (nulo em hexágono sem domicílio)
 INDICADORES = {
     "lst_mean":        dict(fontes=["ccl_lst", "gee_lst"], transform=None, social=False),
-    "deficit_verde":   dict(fontes=["ccl_frac_veg", "gee_ndvi_pct"],
+    "deficit_verde":   dict(fontes=["municipal_pct_verde", "ccl_frac_veg", "gee_ndvi_pct"],
                             transform=lambda s: 100 - s, social=False),
     "pct_impermeavel": dict(fontes=["pct_construido", "pct_urbano"], transform=None, social=False),
     "vuln_social":     dict(fontes=["renda_media_norm"], transform=None, social=True),
