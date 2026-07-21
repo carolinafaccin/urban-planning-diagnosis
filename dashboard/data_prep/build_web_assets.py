@@ -7,9 +7,15 @@ O que faz   : Gera os assets do site (dashboard/) a partir do GeoPackage final
               descritiva da área. Depois sincroniza tudo para
               dashboard/public/data/ (limpando antes de copiar), de onde o
               Vite serve os arquivos em dev/build.
-Saída       : {REPORT_DIR}/ (fora do git): report.json, imgs/*.png
+Saída       : {REPORT_DIR}/ (fora do git): report.json, imgs/*.png, cópia do
+              GeoPackage final (para download pelo site)
               dashboard/public/data/ (gitignored): cópia do acima
 Requer      : 10_build_geopackage.py e 11_analises.py já rodados.
+
+O GeoPackage é copiado (não movido) para dentro de REPORT_DIR para virar um
+link de download no site — o entregável principal do diagnóstico continua
+sendo o .gpkg em DATA_DIR (ver CLAUDE.md); o site só expõe uma cópia dele
+para quem só tem o link do site, não o Google Drive do projeto.
 
 A análise descritiva da área (texto específico do projeto, não genérico) vem
 de {LOCAL_DATA_DIR}/analise_area.md — mesmo lugar de outros inputs manuais do
@@ -188,6 +194,17 @@ def main():
                           descricao=m["descricao"]))
         print(f"  [ok] {m['id']} → {out_png.name}")
 
+    # Copia o GeoPackage final para dentro do que vai ser servido pelo site.
+    gpkg_arquivo = None
+    gpkg_tamanho_mb = None
+    if GPKG_PATH.exists():
+        gpkg_arquivo = GPKG_PATH.name
+        shutil.copy2(GPKG_PATH, imgs_dir.parent / gpkg_arquivo)
+        gpkg_tamanho_mb = GPKG_PATH.stat().st_size / (1024 * 1024)
+        print(f"  [ok] {gpkg_arquivo} copiado para download ({gpkg_tamanho_mb:.1f} MB)")
+    else:
+        print(f"  [aviso] GeoPackage não encontrado: {GPKG_PATH} — sem link de download no site.")
+
     # estatísticas do cabeçalho
     n_hex = len(hexg)
     n_pop = int(hexg["tem_populacao"].sum()) if "tem_populacao" in hexg.columns else None
@@ -202,6 +219,8 @@ def main():
         dist=(dist.dropna().astype(int).to_dict() if dist is not None else {}),
         cards=cards,
         analise_md=ler_analise_area(),
+        gpkg_arquivo=gpkg_arquivo,
+        gpkg_tamanho_mb=(round(gpkg_tamanho_mb, 1) if gpkg_tamanho_mb is not None else None),
     )
     (REPORT_DIR / "report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"

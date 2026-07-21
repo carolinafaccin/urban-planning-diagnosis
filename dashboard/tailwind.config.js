@@ -1,5 +1,4 @@
 import { colors as wriColors } from "@wri-brasil/design-system";
-import typography from "@tailwindcss/typography";
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -15,5 +14,7 @@ export default {
       },
     },
   },
-  plugins: [typography],
+  // Markdown (análise da área, notas metodológicas) usa a classe .prose-notes
+  // (index.css, com os tokens da marca) em vez do plugin @tailwindcss/typography.
+  plugins: [],
 };

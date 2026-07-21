@@ -1,3 +1,67 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  @apply bg-gray-50 text-wri-ink font-sans antialiased;
+}
+
+/* @wri-brasil/design-system fixa font-family: Inter, mas este projeto não
+   carrega essa fonte — herda a fonte padrão do app em vez de cair no
+   fallback do sistema (mesmo fix do dashboard do climate-injustice-index). */
+#root .wri-btn,
+#root .wri-chip,
+#root .wri-kpi,
+#root .wri-ramp {
+  font-family: inherit;
+}
+
+/* Notas metodológicas e análise da área (render do markdown em runtime) —
+   tipografia com os tokens da marca em vez do `prose` genérico do
+   @tailwindcss/typography (mesma abordagem do climate-injustice-index). */
+.prose-notes {
+  @apply text-[15px] leading-relaxed text-gray-700;
+}
+.prose-notes h1 {
+  @apply mb-4 mt-2 text-2xl font-semibold text-wri-ink;
+}
+.prose-notes h2 {
+  @apply mb-3 mt-8 border-b border-wri-line pb-1 text-xl font-semibold text-wri-ink;
+}
+.prose-notes h3 {
+  @apply mb-2 mt-6 text-base font-semibold text-wri-ink;
+}
+.prose-notes p {
+  @apply my-3;
+}
+.prose-notes ul {
+  @apply my-3 list-disc pl-6;
+}
+.prose-notes ol {
+  @apply my-3 list-decimal pl-6;
+}
+.prose-notes li {
+  @apply my-1;
+}
+.prose-notes a {
+  @apply text-wri-green underline;
+}
+.prose-notes code {
+  @apply rounded bg-gray-100 px-1 py-0.5 text-[13px];
+}
+.prose-notes table {
+  @apply my-4 w-full border-collapse text-sm;
+}
+.prose-notes th,
+.prose-notes td {
+  @apply border border-wri-line px-3 py-1.5 text-left;
+}
+.prose-notes strong {
+  @apply font-semibold text-wri-ink;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+}

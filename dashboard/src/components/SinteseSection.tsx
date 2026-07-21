@@ -1,4 +1,5 @@
 import { Card } from "@wri-brasil/design-system";
+import ImageZoom from "./ImageZoom";
 import type { ReportCard } from "../types";
 
 // Classes/cores da classificação de prioridade — espelham MAPAS["prioridade"]
@@ -20,13 +21,15 @@ interface SinteseSectionProps {
 export default function SinteseSection({ card }: SinteseSectionProps) {
   return (
     <section id="mapa-sintese" className="py-6">
-      <h2 className="text-xl font-semibold text-wri-ink">{card.titulo}</h2>
-      <p className="mt-1 max-w-2xl text-sm text-wri-muted">{card.descricao}</p>
-      <Card className="mt-4 overflow-hidden p-0">
-        <img
+      <h2 className="border-l-4 border-wri-yellow pl-3 text-xl font-semibold text-wri-ink">
+        {card.titulo}
+      </h2>
+      <p className="mt-1 max-w-2xl pl-3 text-sm text-wri-muted">{card.descricao}</p>
+      <Card className="mt-4 overflow-hidden p-0 print:break-inside-avoid">
+        <ImageZoom
           src={`${import.meta.env.BASE_URL}data/${card.img}`}
           alt={card.titulo}
-          className="w-full max-w-2xl mx-auto"
+          className="mx-auto w-full max-w-2xl"
         />
         <div className="flex flex-wrap items-center gap-4 border-t border-wri-line p-4">
           {CLASSES.map((c) => (

@@ -185,6 +185,23 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
   construída à mão em `SinteseSection.tsx`, com os valores espelhados de
   `MAPAS["prioridade"]` em `build_web_assets.py` (sem sincronização
   automática entre os dois — mudar um exige mudar o outro à mão).
+- **Identidade visual alinhada com o `climate-injustice-index`** (mesmo
+  produto WRI Brasil, "olhar" parecido): `TopBar`/`Footer` com o logo em
+  `public/wri-brasil-logo(-k).png` + `favicon.ico` (copiados do repo-irmão,
+  não redesenhados), botão "Salvar como PDF" (`window.print()` + CSS de
+  impressão), e markdown (`AnaliseArea`/`MethodologyNotes`) estilizado com a
+  classe `.prose-notes` (tokens da marca em `index.css`) em vez do plugin
+  `@tailwindcss/typography` — mesma escolha do repo-irmão, que usa a mesma
+  técnica. Diferente do repo-irmão: sem router/múltiplas páginas (site de um
+  projeto só) e sem mapas interativos (decisão já registrada acima).
+- `ImageZoom.tsx`: miniatura clicável → modal com a imagem ampliada e um
+  link de download do PNG original. Usado em `MapCard.tsx` e
+  `SinteseSection.tsx`.
+- `DownloadData.tsx`: expõe o GeoPackage final para download direto pelo
+  site. `build_web_assets.py` copia o `.gpkg` (não move) para dentro de
+  `REPORT_DIR`/`public/data/` e grava `gpkg_arquivo`/`gpkg_tamanho_mb` no
+  `report.json` — o entregável principal continua sendo o `.gpkg` do
+  `DATA_DIR`; o site só espelha uma cópia para quem só tem o link do site.
 - Tokens de cor do Tailwind (`tailwind.config.js`) são importados direto de
   `@wri-brasil/design-system` (`colors`), não redigitados — evita a
   divergência silenciosa que existe no dashboard do `climate-injustice-index`

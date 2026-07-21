@@ -11,9 +11,11 @@ export default function AnaliseArea({ analiseMd }: AnaliseAreaProps) {
   if (!analiseMd.trim()) return null;
   return (
     <section id="analise" className="py-6">
-      <h2 className="text-xl font-semibold text-wri-ink">Análise da área</h2>
+      <h2 className="border-l-4 border-wri-yellow pl-3 text-xl font-semibold text-wri-ink">
+        Análise da área
+      </h2>
       <div
-        className="prose prose-sm mt-3 max-w-2xl text-wri-ink"
+        className="prose-notes mt-3 max-w-2xl pl-3"
         dangerouslySetInnerHTML={{ __html: marked.parse(analiseMd, { async: false }) }}
       />
     </section>
