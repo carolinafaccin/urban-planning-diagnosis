@@ -25,6 +25,13 @@ MUNICIPIO    = "Campinas"
 UF           = "SP"
 IBGE_COD_MUN = "3509502"
 
+# Cloudflare Pages: um único project "guarda-chuva" (produto) com um branch
+# por projeto/bbox. Branch deploys viram <PAGES_BRANCH>.<PAGES_PROJECT>.pages.dev
+# — não precisa criar um Pages project novo a cada cidade/bairro.
+# Usado por scripts/report/deploy.sh.
+PAGES_PROJECT = "diagnostico-urbanistico"
+PAGES_BRANCH  = "bassoli"
+
 # ----------------------------------------------------------------------
 # Área de estudo
 # ----------------------------------------------------------------------
