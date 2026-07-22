@@ -11,6 +11,10 @@ Saída       : {REPORT_DIR}/ (fora do git): report.json, imgs/*.png
               dashboard/public/data/ (gitignored): cópia do acima
 Requer      : 13_build_geopackage.py e 14_analises.py já rodados.
 
+Estilo dos mapas (título, norte, escala, inset de localização, tipografia
+Inter) vem de estilo_mapa.py, neste mesmo diretório — ver esse arquivo para
+a paleta de cores/tokens de design.
+
 O site NÃO expõe o GeoPackage para download (removido — o arquivo passou de
 25 MiB, limite por arquivo do Cloudflare Pages, com a adição das camadas de
 localização país/UF/município). O entregável principal do diagnóstico
@@ -49,16 +53,31 @@ from config import (  # noqa: E402
     CRS_PROJETO,
     CRS_WGS84,
     GPKG_PATH,
+    IBGE_COD_MUN,
     LOCAL_DATA_DIR,
     MUNICIPIO,
     REPORT_DIR,
 )
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from estilo_mapa import (  # noqa: E402
+    aplicar_estilo,
+    criar_figura_mapa,
+    desenhar_escala,
+    desenhar_inset_localizacao,
+    desenhar_norte,
+    estilizar_fonte_dados,
+    estilizar_titulo,
+)
+
+aplicar_estilo()
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = SCRIPT_DIR.parent
 PUBLIC_DATA_DIR = DASHBOARD_DIR / "public" / "data"
 
 ANALISE_AREA_MD = LOCAL_DATA_DIR / "analise_area.md"
+COD_UF = IBGE_COD_MUN[:2]
 
 DPI = 140
 
@@ -121,37 +140,60 @@ def carregar():
             contexto[camada] = gpd.read_file(GPKG_PATH, layer=camada).to_crs(CRS_PROJETO)
         except Exception:
             contexto[camada] = None
-    return hexg, contexto
+    # Camadas de localização (país/UF/município) — usadas só pelo inset, já
+    # geradas fora do bbox pelo 02_download_ibge.py (ver CLAUDE.md).
+    localizacao = {}
+    for camada in ("uf", "municipios_uf"):
+        try:
+            localizacao[camada] = gpd.read_file(GPKG_PATH, layer=camada).to_crs(CRS_PROJETO)
+        except Exception:
+            localizacao[camada] = None
+    return hexg, contexto, localizacao
 
 
-def base_ax(hexg, contexto):
-    fig, ax = plt.subplots(figsize=(7, 7))
-    ax.set_axis_off()
+def base_ax(hexg, contexto, localizacao=None):
+    fig, ax = criar_figura_mapa()
     if contexto.get("viario") is not None:
         contexto["viario"].plot(ax=ax, color="#bbbbbb", linewidth=0.3, zorder=1)
     # Contorno do bbox por cima do mapa (zorder alto) — contextualiza a área de
     # estudo mesmo quando a malha H3 não cobre o bbox inteiro (bordas rurais).
     BBOX_BOUNDARY.boundary.plot(ax=ax, color="#333333", linewidth=0.9, linestyle="--", zorder=3)
+    desenhar_norte(ax)
+    desenhar_escala(ax)
+    if localizacao and localizacao.get("uf") is not None and localizacao.get("municipios_uf") is not None:
+        municipios_uf = localizacao["municipios_uf"]
+        municipio_alvo = municipios_uf[municipios_uf["cd_mun"] == IBGE_COD_MUN]
+        # "uf" traz as 27 UFs (escala nacional, de propósito — ver CLAUDE.md);
+        # o inset só precisa da UF do projeto, senão o locator vira um mapa
+        # do Brasil inteiro, minúsculo e ilegível.
+        uf_alvo = localizacao["uf"][localizacao["uf"]["cd_uf"] == COD_UF]
+        if len(municipio_alvo) > 0 and len(uf_alvo) > 0:
+            desenhar_inset_localizacao(
+                fig, uf_alvo, municipio_alvo, municipios_uf,
+                bbox_geom=BBOX_BOUNDARY,
+            )
     return fig, ax
 
 
-def render_continuo(hexg, contexto, m, out_png):
+def render_continuo(hexg, contexto, localizacao, m, out_png):
     if m["col"] not in hexg.columns or hexg[m["col"]].notna().sum() == 0:
         return None
-    fig, ax = base_ax(hexg, contexto)
+    fig, ax = base_ax(hexg, contexto, localizacao)
     hexg.plot(
         ax=ax, column=m["col"], cmap=m["cmap"], linewidth=0.1, edgecolor="white",
         alpha=0.85, legend=True, scheme="quantiles", k=5, zorder=2,
-        legend_kwds=dict(loc="lower right", fontsize=7, frameon=False, title=""),
+        legend_kwds=dict(loc="lower right", fontsize=7, frameon=False, title="",
+                          labelcolor="#595959"),
         missing_kwds=dict(color="#eeeeee", label="sem dado"),
     )
-    ax.set_title(m["titulo"], fontsize=13, loc="left")
+    estilizar_titulo(ax, m["titulo"])
+    estilizar_fonte_dados(ax, m["descricao"])
     fig.savefig(out_png, dpi=DPI, bbox_inches="tight")
     plt.close(fig)
     return m["col"]
 
 
-def render_categorico(hexg, contexto, m, out_png):
+def render_categorico(hexg, contexto, localizacao, m, out_png):
     if m["col"] not in hexg.columns:
         return None
     from matplotlib.colors import ListedColormap
@@ -160,14 +202,19 @@ def render_categorico(hexg, contexto, m, out_png):
     cats = m["ordem"]
     cmap = ListedColormap(m["cores"])
     cat_idx = hexg[m["col"]].astype("category").cat.set_categories(cats)
-    fig, ax = base_ax(hexg, contexto)
+    fig, ax = base_ax(hexg, contexto, localizacao)
     hexg.assign(_i=cat_idx.cat.codes).plot(
         ax=ax, column="_i", cmap=cmap, vmin=0, vmax=len(cats) - 1,
         linewidth=0.1, edgecolor="white", alpha=0.85, zorder=2,
     )
-    ax.legend(handles=[mpatches.Patch(color=c, label=l) for c, l in zip(m["cores"], cats)],
-              loc="lower right", fontsize=8, frameon=False, title="prioridade")
-    ax.set_title(m["titulo"], fontsize=13, loc="left")
+    legend = ax.legend(
+        handles=[mpatches.Patch(color=c, label=l) for c, l in zip(m["cores"], cats)],
+        loc="lower right", fontsize=8, frameon=False, title="prioridade",
+        labelcolor="#595959",
+    )
+    legend.get_title().set_color("#595959")
+    estilizar_titulo(ax, m["titulo"])
+    estilizar_fonte_dados(ax, m["descricao"])
     fig.savefig(out_png, dpi=DPI, bbox_inches="tight")
     plt.close(fig)
     return m["col"]
@@ -193,7 +240,7 @@ def sincronizar_public_data():
 
 
 def main():
-    hexg, contexto = carregar()
+    hexg, contexto, localizacao = carregar()
     # Limpa REPORT_DIR antes de escrever — evita misturar com resíduos de
     # formatos antigos (ex.: imgs/<cidade>/ do generate_report.py aposentado).
     if REPORT_DIR.exists():
@@ -205,7 +252,7 @@ def main():
     for m in MAPAS:
         out_png = imgs_dir / f"{m['id']}.png"
         render = render_categorico if m["kind"] == "categorico" else render_continuo
-        ok = render(hexg, contexto, m, out_png)
+        ok = render(hexg, contexto, localizacao, m, out_png)
         if ok is None:
             print(f"  [pulado] {m['id']}: coluna '{m['col']}' ausente ou vazia.")
             continue
