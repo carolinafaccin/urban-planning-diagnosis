@@ -6,7 +6,7 @@ O que faz   : Lê os CSVs exportados por gee_lst_ndvi_res10.js e já organizados
               UF — mais de um quando a UF precisou de lotes, ver CHUNK_SIZE
               nos scripts gee_*_res10.js) e consolida em h3_gee.parquet,
               chaveado por h3_id — o enriquecimento que o
-              10_build_geopackage.py junta à malha e que o 11_analises.py usa
+              13_build_geopackage.py junta à malha e que o 14_analises.py usa
               como FALLBACK de LST/NDVI quando não há Cool Cities.
 Saída       : {DATA_DIR}/processed/h3_gee.parquet (h3_id → gee_lst, gee_ndvi_pct)
 Entrada     : {RAW_CATALOG}/gee/br_h3_res10/lst_ndvi/gee_br_h3_res10_lst_ndvi_uf_*.csv

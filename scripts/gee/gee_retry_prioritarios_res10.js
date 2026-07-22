@@ -17,7 +17,10 @@
 // --- CONFIGURAÇÃO COMUM ---
 var GEE_PROJECT = 'ee2-linafaccin';
 var H3_RES10_CIRCUMRADIUS_M = 76;
-var CHUNK_SIZE = 700000; // ver nota nos scripts individuais: acima disso, "Computed value is too large"
+// 700000 gerava "Computed value is too large" na conta antiga; nesta conta
+// (ee2-linafaccin, cota menor) 700000 já deu "out of memory" (Error code: 8)
+// no lst_ndvi pra UF 43 — reduzido pra dar mais folga de memória por lote.
+var CHUNK_SIZE = 150000;
 
 var ASSET_POR_UF = {};
 [11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29,

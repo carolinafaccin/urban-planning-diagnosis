@@ -1,5 +1,5 @@
 """
-05_h3_dasimetrico.py
+07_h3_dasimetrico.py
 --------------------
 O que faz   : Monta a malha H3 (res do config) sobre a área de estudo e é a
               espinha dorsal da síntese: recebe os indicadores do Censo por
@@ -7,7 +7,7 @@ O que faz   : Monta a malha H3 (res do config) sobre a área de estudo e é a
               solo do CNEFE. Os scripts de raster (06 MapBiomas, 07 Cool Cities,
               queimadas, GEE) anexam suas colunas a esta mesma malha depois.
 Camadas     : h3_base (no {DATA_DIR}/h3.gpkg)
-Requer      : 02_download_ibge.py e 04_cnefe.py já rodados.
+Requer      : 02_download_ibge.py e 06_cnefe.py já rodados.
 Fonte       : {DATA_DIR}/ibge.gpkg (valores por setor) + os parquets do 04.
 
 Interpolação dasimétrica (setor → hexágono)
@@ -26,19 +26,19 @@ de setor entre hexágonos e só vale para contagens — aplicá-la a uma média
 per-domicílio subestima o valor (um hexágono tem só uma fração dos domicílios
 do setor). Domicílios por setor são contados no setor INTEIRO (o 04 capturou
 além do bbox), mas para média intensiva o que importa é o peso relativo dentro
-do hexágono. Ver o cabeçalho do 04_cnefe.py.
+do hexágono. Ver o cabeçalho do 06_cnefe.py.
 
 Hexágonos sem domicílio (córrego, áreas verdes) são MANTIDOS na malha: os
 indicadores sociais ficam nulos ali (não há a quem atribuir), mas eles seguem
 recebendo os indicadores físicos (calor, verde, impermeável) dos scripts de
-raster. O 11_analises.py trata esses nulos explicitamente ao compor o score —
+raster. O 14_analises.py trata esses nulos explicitamente ao compor o score —
 são justamente onde algumas intervenções (ex.: parques lineares) podem se localizar.
 
 Para adaptar: ajuste H3_RESOLUCAO no config.py. As variáveis interpoladas são
               detectadas por VARS_DASIMETRICAS abaixo.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/05_h3_dasimetrico.py
+              python ../../scripts/pipeline/07_h3_dasimetrico.py
 """
 
 import sys

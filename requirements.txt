@@ -18,10 +18,10 @@ openpyxl==3.1.5
 overturemaps==1.0.1
 duckdb==1.5.4
 
-# 04_cnefe.py, 05_h3_dasimetrico.py, 08_queimadas.py, gee_centroides_res10.py
+# 06_cnefe.py, 07_h3_dasimetrico.py, 11_queimadas.py, gee_centroides_res10.py
 h3==4.5.0
 
-# 06_mapbiomas.py, 07_cool_cities.py (estatística zonal de rasters)
+# 08_mapbiomas.py, 10_cool_cities.py (estatística zonal de rasters)
 rasterio==1.5.0
 rasterstats==0.21.0
 

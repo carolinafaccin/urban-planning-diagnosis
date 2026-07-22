@@ -8,7 +8,7 @@
 // albedo baixo E alta fração construída (pct_construido, já calculado no
 // pipeline via Overture) são candidatos a intervenção de cool roof, mesmo
 // fora de cidades com Cool Cities Lab (hoje só o CCL calcula albedo, via
-// 07_cool_cities.py — este é o fallback GEE equivalente).
+// 10_cool_cities.py — este é o fallback GEE equivalente).
 //
 // Método: albedo de banda larga por conversão narrowband→broadband (Liang,
 //   2001), usando as bandas do Sentinel-2 equivalentes às do Landsat ETM+
@@ -83,7 +83,11 @@ var albedo_medio = s2.map(toAlbedo).median();
 // reduceRegions num único lote (MG, SP, PA, BA, PR, RS observados na prática)
 // — por isso todo UF é processado em lotes de CHUNK_SIZE via toList(count,
 // offset), não só os grandes.
-var CHUNK_SIZE = 700000;
+// 700000 gerava "Computed value is too large" na conta antiga; numa conta
+// com cota de memória menor (ex.: ee2-linafaccin), 700000 já deu "out of
+// memory" (Error code: 8). Reduzido pra dar mais folga por lote — se ainda
+// estourar, diminua mais.
+var CHUNK_SIZE = 150000;
 
 ufs.forEach(function (uf) {
   if (!ASSET_POR_UF[uf]) {

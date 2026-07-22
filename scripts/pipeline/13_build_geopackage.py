@@ -1,5 +1,5 @@
 """
-10_build_geopackage.py
+13_build_geopackage.py
 ----------------------
 O que faz   : Consolida tudo no GeoPackage final do projeto. Junta os
               enriquecimentos por hexágono (Censo dasimétrico + uso do solo +
@@ -13,24 +13,24 @@ Camadas     : h3_indicadores (hexágonos com todos os indicadores, sem score)
                 locais que existirem
               + _metadados
 Saída       : {DATA_DIR}/{PROJECT_NAME}.gpkg
-Requer      : 05 (h3_base) e, idealmente, 06/07/08/03/03b/03c/06b.
+Requer      : 07 (h3_base) e, idealmente, 08/10/11/03/04/05/09.
               Enriquecimentos ausentes são só avisados — o build segue com
               o que existe.
 
 Viário: se {DATA_DIR}/viario_enriquecido.gpkg existir (gerado pelo
-03b_dados_municipais.py quando há classificacao_viaria municipal), ele é
+04_dados_municipais.py quando há classificacao_viaria municipal), ele é
 usado no lugar do viário puro do osm.gpkg — mesma topologia OSM, com a coluna
 extra pmc_classifica anexada (primeira fonte existente vence, mesmo
-mecanismo do 11_analises.py::INDICADORES). A camada municipal nunca substitui
+mecanismo do 14_analises.py::INDICADORES). A camada municipal nunca substitui
 a topologia, só a enriquece.
 
-O score de prioridade e as análises derivadas ficam no 11_analises.py, que lê
+O score de prioridade e as análises derivadas ficam no 14_analises.py, que lê
 h3_indicadores e grava h3_sintese neste mesmo .gpkg.
 
 Para adaptar: nada. Descobre as fontes pelos caminhos do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/10_build_geopackage.py
+              python ../../scripts/pipeline/13_build_geopackage.py
 """
 
 import sys
@@ -73,7 +73,7 @@ VETORES = [
     (DATA_DIR / "osm.gpkg", "pontos_onibus"),
     (DATA_DIR / "ibge.gpkg", "setores_censitarios"),
     (EDIF_GPKG_PATH, "edificacoes"),
-    (DATA_DIR / "app_corregos.gpkg", "app_corregos"),  # opcional (03c)
+    (DATA_DIR / "app_corregos.gpkg", "app_corregos"),  # opcional (05)
 ]
 
 
@@ -132,7 +132,7 @@ def main():
                           "fonte": origem.name, "gerado_em": str(date.today())})
         print(f"  [{camada}] {len(gdf)} feições copiadas")
 
-    # Camadas municipais (o que o 03b tiver produzido) — 'viario' fica de fora
+    # Camadas municipais (o que o 04 tiver produzido) — 'viario' fica de fora
     # daqui porque já foi resolvido em VETORES (enriquecido ou não).
     if MUNICIPAIS_GPKG_PATH.exists():
         import pyogrio

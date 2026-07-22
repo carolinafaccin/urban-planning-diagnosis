@@ -24,7 +24,7 @@ urban-planning-diagnosis/
 │   └── config.local.json       # seus caminhos locais (fora do git)
 │
 ├── scripts/                    # genéricos — servem a qualquer cidade
-│   ├── pipeline/                # 01_… a 11_…  (constroem o GeoPackage)
+│   ├── pipeline/                # 01_… a 14_…  (constroem o GeoPackage)
 │   └── gee/                     # fallback LST/NDVI + catálogo nacional res10
 │
 ├── dashboard/                  # site React (Vite+TS+Tailwind) — diagnóstico
@@ -122,24 +122,29 @@ CRS está hard-coded neles.
 
 ## Scripts
 
-O pipeline é organizado em torno de uma **malha H3 res10**: os scripts 01–04
-trazem os dados por fonte, o 05 monta a malha e recebe o Censo por
-**interpolação dasimétrica** (peso = domicílios do CNEFE), os 06–08 anexam
-indicadores de raster/pontos por hexágono, e o 10/11 consolidam e pontuam.
+O pipeline é organizado em torno de uma **malha H3 res10**: os scripts 01–05
+trazem os dados por fonte (04 e 05 são opcionais — dados municipais e APP de
+córregos), o 06/07 montam a malha e recebem o Censo por **interpolação
+dasimétrica** (peso = domicílios do CNEFE), os 08–11 anexam indicadores de
+raster/pontos por hexágono (09 opcional, indicadores municipais), e o
+13/14 consolidam e pontuam.
 
 | Script (`scripts/pipeline/`) | O que faz | Saída |
 | --- | --- | --- |
 | `01_download_osm.py` | Viário, ciclovias, parques, pontos de ônibus (OSM) | `osm.gpkg` |
 | `02_download_ibge.py` | Setores + Censo 2022 (arborização, iluminação, calçada, renda) | `ibge.gpkg` |
 | `03_overture_edificacoes.py` | Edificações do Overture por bbox, filtradas por confiança | `edificacoes.gpkg` |
-| `04_cnefe.py` | Varre o CNEFE da UF → recorte + uso do solo + domicílios por hexágono | 3 parquets |
-| `05_h3_dasimetrico.py` | Malha H3 res10 + interpolação dasimétrica do Censo + uso do solo | `h3.gpkg::h3_base` |
-| `06_mapbiomas.py` | Cobertura do solo (Coleção 10) por hexágono | `h3_mapbiomas.parquet` |
-| `07_cool_cities.py` | LST, vegetação, risco de calor, UTCI e cenários (Cool Cities Lab) | `h3_cool_cities.parquet` |
-| `08_queimadas.py` | Focos de calor (INPE) por hexágono | `h3_queimadas.parquet` |
-| `09_dados_locais.py` | Ingere geojsons à mão + fornecidos pela prefeitura | `locais.gpkg` |
-| `10_build_geopackage.py` | Consolida hexágonos + vetores no `.gpkg` final, grava `_metadados` | `{PROJECT_NAME}.gpkg` |
-| `11_analises.py` | Score de prioridade, cobertura de ônibus, raio de caminhabilidade | `h3_sintese`, ... |
+| `04_dados_municipais.py` | Ingere o catálogo de dados municipais (prefeitura), opt-in | `municipais.gpkg` |
+| `05_app_corregos.py` | APP de córregos (Código Florestal) a partir da hidrografia | `app_corregos.gpkg` |
+| `06_cnefe.py` | Varre o CNEFE da UF → recorte + uso do solo + domicílios por hexágono | 3 parquets |
+| `07_h3_dasimetrico.py` | Malha H3 res10 + interpolação dasimétrica do Censo + uso do solo | `h3.gpkg::h3_base` |
+| `08_mapbiomas.py` | Cobertura do solo (Coleção 10) por hexágono | `h3_mapbiomas.parquet` |
+| `09_indicadores_municipais.py` | % de cobertura por hexágono das camadas municipais que alimentam o score | `h3_municipal.parquet` |
+| `10_cool_cities.py` | LST, vegetação, risco de calor, UTCI e cenários (Cool Cities Lab) | `h3_cool_cities.parquet` |
+| `11_queimadas.py` | Focos de calor (INPE) por hexágono | `h3_queimadas.parquet` |
+| `12_dados_locais.py` | Ingere geojsons à mão + fornecidos pela prefeitura | `locais.gpkg` |
+| `13_build_geopackage.py` | Consolida hexágonos + vetores no `.gpkg` final, grava `_metadados` | `{PROJECT_NAME}.gpkg` |
+| `14_analises.py` | Score de prioridade, cobertura de ônibus, raio de caminhabilidade | `h3_sintese`, ... |
 
 **`scripts/gee/`** — fallback de LST/NDVI para cidades sem Cool Cities Lab, e
 base do catálogo nacional res10: `gee_centroides_res10.py` (gera o CSV de

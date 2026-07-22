@@ -1,7 +1,7 @@
 ## Como o score de prioridade é calculado
 
 O **score de prioridade** de cada hexágono (malha H3) é uma média ponderada de
-indicadores normalizados, calculada pelo script `11_analises.py`:
+indicadores normalizados, calculada pelo script `14_analises.py`:
 
 - **Temperatura de superfície** (LST)
 - **Déficit de cobertura vegetal** (inverso da fração de vegetação)

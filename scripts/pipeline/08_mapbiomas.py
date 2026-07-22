@@ -1,5 +1,5 @@
 """
-06_mapbiomas.py
+08_mapbiomas.py
 ---------------
 O que faz   : Calcula a composição de cobertura do solo (MapBiomas) por
               hexágono da malha H3, via estatística zonal categórica, e deriva
@@ -9,7 +9,7 @@ Saída       : {DATA_DIR}/processed/h3_mapbiomas.parquet (h3_id → pct_*)
 Fonte       : raw_dir/mapbiomas/uso-e-cobertura_colecao-10/brazil_coverage_2024.tif
               (Coleção 10, uso e cobertura 2024; raster nacional EPSG:4326,
               ~30 m, uint8 com o código da classe MapBiomas por pixel)
-Requer      : 05_h3_dasimetrico.py já rodado (usa a geometria de h3_base).
+Requer      : 07_h3_dasimetrico.py já rodado (usa a geometria de h3_base).
 
 Notas
 -----
@@ -25,7 +25,7 @@ Para adaptar: aponte MAPBIOMAS_TIF para a coleção/ano desejado. Os grupos
               ajustados sem tocar no resto.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/06_mapbiomas.py
+              python ../../scripts/pipeline/08_mapbiomas.py
 """
 
 import sys

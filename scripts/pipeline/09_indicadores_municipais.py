@@ -1,16 +1,16 @@
 """
-06b_indicadores_municipais.py
-------------------------------
+09_indicadores_municipais.py
+----------------------------
 O que faz   : Para as camadas municipais de CAMADAS_MUNICIPAIS com
               `indicador_score` preenchido (categoria 2 — fallback de
               indicador do score, ver CLAUDE.md), calcula o % de cobertura
               por hexágono da malha H3 (estatística de área, mesmo espírito
-              do 06_mapbiomas.py) e grava colunas prefixadas `municipal_*`
-              que o 11_analises.py passa a aceitar como PRIMEIRA opção de
+              do 08_mapbiomas.py) e grava colunas prefixadas `municipal_*`
+              que o 14_analises.py passa a aceitar como PRIMEIRA opção de
               fonte (fallback: municipal → Cool Cities/GEE).
 Saída       : {DATA_DIR}/processed/h3_municipal.parquet (h3_id → municipal_*)
-Fonte       : {DATA_DIR}/municipais.gpkg (gerado pelo 03b_dados_municipais.py)
-Requer      : 03b_dados_municipais.py e 05_h3_dasimetrico.py já rodados.
+Fonte       : {DATA_DIR}/municipais.gpkg (gerado pelo 04_dados_municipais.py)
+Requer      : 04_dados_municipais.py e 07_h3_dasimetrico.py já rodados.
 
 Camadas com o mesmo `indicador_score` são UNIDAS antes da estatística de
 área (ex.: areas_verdes + bosques_parques + vegetacao_natural → um único
@@ -19,13 +19,13 @@ duas vezes onde as camadas se sobrepõem (ver aviso de duplicidade no
 README.md do raw_dir municipal).
 
 Tolerante: sem municipais.gpkg, ou sem nenhuma camada com indicador_score
-preenchido, este script não grava nada — o 11_analises.py cai para as
+preenchido, este script não grava nada — o 14_analises.py cai para as
 fontes nacionais/globais (Cool Cities/GEE) normalmente.
 
 Para adaptar: nada. Descobre as camadas pelo CAMADAS_MUNICIPAIS do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/06b_indicadores_municipais.py
+              python ../../scripts/pipeline/09_indicadores_municipais.py
 """
 
 import sys
@@ -86,7 +86,7 @@ def main():
         return
     if not MUNICIPAIS_GPKG_PATH.exists():
         print(f"[aviso] {MUNICIPAIS_GPKG_PATH.name} não encontrado — rode o "
-              "03b_dados_municipais.py antes. Nada será gravado.")
+              "04_dados_municipais.py antes. Nada será gravado.")
         return
 
     camadas_no_gpkg = set(pyogrio.list_layers(MUNICIPAIS_GPKG_PATH)[:, 0])

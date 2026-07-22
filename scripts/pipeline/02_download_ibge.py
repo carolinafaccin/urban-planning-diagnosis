@@ -3,7 +3,7 @@
 -------------------
 O que faz   : Monta a camada de setores censitários da área de estudo, com
               os indicadores do Censo 2022 usados nos mapas 7, 8, 9 e 15 e
-              no score de prioridade do 11_analises.py.
+              no score de prioridade do 14_analises.py.
 Camadas     : setores_censitarios
 Fonte       : Catálogo raw_dir/ibge/censo/2022/ (nada é baixado — os dados
               já estão no catálogo geral):
@@ -29,7 +29,7 @@ Notas sobre os dados
   no catálogo uma série paralela por MORADORES (V052xx, em
   percentuais_por_setor_gpkg/) — não misturar as duas.
 - `renda_media_norm` é a renda média invertida e normalizada [0,1] DENTRO da
-  área de estudo (maior = mais vulnerável), como o 11_analises.py espera.
+  área de estudo (maior = mais vulnerável), como o 14_analises.py espera.
   Por ser relativa ao recorte, não é comparável entre projetos.
 
 Como rodar  : a partir da pasta do projeto (onde está o config.py):
@@ -149,7 +149,7 @@ def main():
     for destino, origem in PERCENTUAIS.items():
         setores[destino] = setores[origem] / total * 100
 
-    # Renda invertida e normalizada — o que o 11_analises.py usa como vuln_social
+    # Renda invertida e normalizada — o que o 14_analises.py usa como vuln_social
     setores["renda_media_norm"] = normalizar_invertido(setores["renda_media"])
 
     sem_entorno = int(setores["domicilios_entorno"].isna().sum())

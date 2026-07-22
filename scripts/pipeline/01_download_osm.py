@@ -10,7 +10,7 @@ Fonte       : OpenStreetMap via osmnx (viário, edificações, ciclovias,
               public_transport=platform).
 
 `hidrografia_osm` é o fallback nacional/global de hidrografia — usado pelo
-03c_app_corregos.py só quando não há hidrografia municipal (03b). Sempre
+05_app_corregos.py só quando não há hidrografia municipal (04). Sempre
 baixada aqui (barata), mesmo que acabe não sendo usada.
 Saída       : {DATA_DIR}/osm.gpkg — uma camada por feature, já reprojetada
               para CRS_PROJETO.

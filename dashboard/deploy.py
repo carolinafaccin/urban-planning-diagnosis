@@ -15,7 +15,7 @@ Uso         : a partir da pasta do projeto (onde está o config.py):
                                                                    # antes de publicar
                                                                    # no branch definitivo)
 Requer      : Node.js + wrangler autenticado (`wrangler login`); GeoPackage do
-              projeto já construído (10_build_geopackage.py + 11_analises.py).
+              projeto já construído (13_build_geopackage.py + 14_analises.py).
 Config      : lê PAGES_PROJECT/PAGES_BRANCH do config.py do projeto. Genérico —
               para publicar outro projeto, rode a partir da pasta dele.
 Privacidade : quem restringe o acesso (allowlist de e-mails) é o Cloudflare

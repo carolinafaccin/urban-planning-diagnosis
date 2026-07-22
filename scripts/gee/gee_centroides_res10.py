@@ -8,7 +8,7 @@ O que faz   : Gera o CSV de centróides dos hexágonos H3 res10 da área de
               isso em res9 para o Brasil inteiro).
 Saída       : {DATA_DIR}/processed/centroides_h3_res10.csv
               colunas: h3_id, cd_setor, cd_uf, qtd_dom, lat, lon
-Requer      : 05_h3_dasimetrico.py já rodado (usa h3_base + os domicílios).
+Requer      : 07_h3_dasimetrico.py já rodado (usa h3_base + os domicílios).
 
 Sobre o asset / escala
 ----------------------

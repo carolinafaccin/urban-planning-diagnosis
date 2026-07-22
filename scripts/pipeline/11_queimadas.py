@@ -1,5 +1,5 @@
 """
-08_queimadas.py
+11_queimadas.py
 ---------------
 O que faz   : Conta focos de calor/queimadas (INPE) por hexágono da malha H3,
               somando todos os anos disponíveis. Gera o mapa de focos e um
@@ -7,7 +7,7 @@ O que faz   : Conta focos de calor/queimadas (INPE) por hexágono da malha H3,
 Saída       : {DATA_DIR}/processed/h3_queimadas.parquet (h3_id → n_focos, ...)
 Fonte       : raw_dir/inpe/queimadas/<ano>.csv (um CSV por ano, 2014–2025,
               com latitude/longitude e risco_fogo)
-Requer      : 05_h3_dasimetrico.py já rodado (geometria/ids de h3_base).
+Requer      : 07_h3_dasimetrico.py já rodado (geometria/ids de h3_base).
 
 Nota de expectativa
 -------------------
@@ -19,7 +19,7 @@ rural. Hexágonos sem foco recebem n_focos = 0.
 Para adaptar: nada específico. Usa o BBOX do config.py para recortar os focos.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/08_queimadas.py
+              python ../../scripts/pipeline/11_queimadas.py
 """
 
 import sys

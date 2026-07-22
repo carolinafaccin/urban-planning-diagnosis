@@ -1,13 +1,13 @@
 """
-03b_dados_municipais.py
-------------------------
+04_dados_municipais.py
+----------------------
 O que faz   : Ingere as camadas do catálogo de dados municipais (prefeitura)
               já baixadas em raw_dir/prefeituras_municipais/<slug>/t0/,
               filtra pela área de estudo (BBOX) e reprojeta para o CRS do
               projeto — uma camada por entrada de CAMADAS_MUNICIPAIS.
 Camadas     : uma por chave de CAMADAS_MUNICIPAIS presente no raw_dir e com
               interseção com o BBOX (nome da camada = a chave, não o nome do
-              arquivo de origem — abstração que deixa o 10_build_geopackage.py
+              arquivo de origem — abstração que deixa o 13_build_geopackage.py
               e o dashboard referenciarem um nome estável independente da
               fonte municipal real por trás).
 Saída       : {DATA_DIR}/municipais.gpkg
@@ -24,12 +24,12 @@ Preferir municipal, fallback nacional/global — 3 categorias (ver CLAUDE.md)
    equivalente (ex.: classificacao_viaria) NUNCA substitui a camada global —
    só enriquece um atributo dela. Ver `enriquecer_viario()` abaixo: gera
    viario_enriquecido.gpkg (cópia do viário OSM + coluna classificacao_pmc via
-   join espacial), sem tocar em osm.gpkg. O 10_build_geopackage.py prefere
+   join espacial), sem tocar em osm.gpkg. O 13_build_geopackage.py prefere
    esse arquivo se ele existir, senão usa o viário OSM puro (mesmo mecanismo
-   de "primeira fonte existente vence" do 11_analises.py::INDICADORES).
+   de "primeira fonte existente vence" do 14_analises.py::INDICADORES).
 2. Fallback de indicador do score: camadas com `indicador_score` preenchido em
    CAMADAS_MUNICIPAIS não viram indicador aqui — isso é o
-   06b_indicadores_municipais.py (precisa da malha H3, que só existe depois
+   09_indicadores_municipais.py (precisa da malha H3, que só existe depois
    do 05). Este script só entrega o vetor bruto recortado.
 3. Aditivo: a maioria das camadas — só entram no GeoPackage final como
    camada extra, sem nenhuma lógica de fallback.
@@ -43,7 +43,7 @@ Para adaptar: preencha CAMADAS_MUNICIPAIS no config.py do projeto (ver
               ou arquivo fica hard-coded aqui.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/03b_dados_municipais.py
+              python ../../scripts/pipeline/04_dados_municipais.py
 """
 
 import sys

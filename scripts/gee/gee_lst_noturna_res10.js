@@ -75,7 +75,11 @@ var indicadores_ampl = indicadores.addBands(
 // reduceRegions num único lote (MG, SP, PA, BA, PR, RS observados na prática)
 // — por isso todo UF é processado em lotes de CHUNK_SIZE via toList(count,
 // offset), não só os grandes.
-var CHUNK_SIZE = 700000;
+// 700000 gerava "Computed value is too large" na conta antiga; numa conta
+// com cota de memória menor (ex.: ee2-linafaccin), 700000 já deu "out of
+// memory" (Error code: 8). Reduzido pra dar mais folga por lote — se ainda
+// estourar, diminua mais.
+var CHUNK_SIZE = 150000;
 
 ufs.forEach(function (uf) {
   if (!ASSET_POR_UF[uf]) {

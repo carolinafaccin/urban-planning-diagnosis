@@ -74,11 +74,11 @@ Toda camada municipal (desta cidade ou de uma futura) se encaixa numa destas:
    camada global — nunca a substitui — porque a topologia de rede do OSM
    (grafo conectado, nós roteáveis) tem garantias que um shapefile municipal
    de eixos tipicamente não tem. Ver `enriquecer_viario()` em
-   `03b_dados_municipais.py`: gera `viario_enriquecido.gpkg` (cópia do viário
+   `04_dados_municipais.py`: gera `viario_enriquecido.gpkg` (cópia do viário
    OSM + coluna extra via join espacial), sem tocar em `osm.gpkg`.
 2. **Preferir municipal, fallback global** — quando os dois alimentam o MESMO
    indicador do score. Usa o mecanismo que já existe em
-   `11_analises.py::INDICADORES` (`fontes=[...]`, primeira coluna presente
+   `14_analises.py::INDICADORES` (`fontes=[...]`, primeira coluna presente
    vence — o mesmo que já resolve LST do Cool Cities OU do GEE). Não inventar
    um novo mecanismo de fallback por camada; sempre estender essa lista.
 3. **Exclusivo municipal, aditivo** (sem equivalente global no pipeline
@@ -98,8 +98,8 @@ raw_dir/prefeituras_municipais/<slug>/t0/, "indicador_score": None ou a
 chave de H3_PESOS que essa camada alimenta}`. Ver
 `projetos/campinas/config.py` para o exemplo populado (49 camadas).
 
-Scripts que leem esse registro: `03b_dados_municipais.py` (ingestão bruta,
-recorte por bbox → `municipais.gpkg`) e `06b_indicadores_municipais.py`
+Scripts que leem esse registro: `04_dados_municipais.py` (ingestão bruta,
+recorte por bbox → `municipais.gpkg`) e `09_indicadores_municipais.py`
 (zonal stats de % de cobertura por hexágono para as entradas com
 `indicador_score` → `h3_municipal.parquet`, consumido pelo `11`).
 
@@ -172,7 +172,7 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
 - A análise descritiva da área (texto específico do projeto, diferente da
   descrição genérica de cada indicador) vem de
   `{LOCAL_DATA_DIR}/analise_area.md` — mesmo lugar de outros inputs manuais
-  do projeto (ver `09_dados_locais.py`). Leitura tolerante: se não existir,
+  do projeto (ver `12_dados_locais.py`). Leitura tolerante: se não existir,
   a seção não aparece.
 - `dashboard/deploy.py` builda (`npm run build`) e publica no Cloudflare
   Pages, lendo `PAGES_PROJECT`/`PAGES_BRANCH` do `config.py` do projeto —
@@ -256,13 +256,13 @@ pip install -r requirements.txt
   2022 é de outra versão que o `cd_setor` da malha `br_setores.gpkg` (num caso
   observado, distrito 05 no CNEFE vs 30/35 na malha, para o mesmo lugar). Join
   por código dá zero match silencioso. Sempre atribua setor por **join
-  espacial** (point-in-polygon), nunca por código. Ver cabeçalho do `04_cnefe.py`.
+  espacial** (point-in-polygon), nunca por código. Ver cabeçalho do `06_cnefe.py`.
 - **Interpolação dasimétrica: intensiva ≠ extensiva.** A fórmula do
   climate-injustice-index (`Valor × domicílios/total_setor`) é para *contagens*
   (extensivas). Renda e percentuais são *médias/taxas* (intensivas) e precisam
   de **média ponderada por domicílios dentro do hexágono**. Trocar uma pela
   outra subestima o valor silenciosamente (renda saiu ~536 em vez de ~2.290 na
-  1ª versão). Ver cabeçalho do `05_h3_dasimetrico.py`.
+  1ª versão). Ver cabeçalho do `07_h3_dasimetrico.py`.
 - **A malha de setores tem 1,4 GB.** Filtrar por bbox usa o índice espacial
   (~10s); filtrar por atributo (`where=`) varre a tabela inteira (minutos no
   Drive). Ver `02_download_ibge.py`.
@@ -299,7 +299,7 @@ pip install -r requirements.txt
 
 ## Estado atual
 
-- **Pipeline completo (01–11 + gee_*) escrito e rodando** no projeto de exemplo.
+- **Pipeline completo (01–14 + gee_*) escrito e rodando** no projeto de exemplo.
   Malha H3 res10 (293 hexágonos) com Censo dasimétrico, uso do solo (CNEFE),
   edificações (Overture), cobertura (MapBiomas col.10), calor/vegetação/UTCI
   (Cool Cities), queimadas (INPE) e score de prioridade. GeoPackage final em
@@ -315,8 +315,8 @@ pip install -r requirements.txt
   de tarefas em `projetos/<cidade>/ref/` (fora do git).
 - Educação: o `04` já extrai ensino/saúde do CNEFE geocodificados — pode
   dispensar uma fonte INEP separada.
-- **Dados municipais (prefeitura) integrados** via `03b_dados_municipais.py` e
-  `06b_indicadores_municipais.py`, com fallback para nacional/global
+- **Dados municipais (prefeitura) integrados** via `04_dados_municipais.py` e
+  `09_indicadores_municipais.py`, com fallback para nacional/global
   (framework de 3 categorias acima). Campinas tem 49 camadas catalogadas em
   `CAMADAS_MUNICIPAIS` (raw_dir/prefeituras_municipais/campinas/). Ainda não
   rodado ponta a ponta contra o GeoPackage de produção — próximo passo antes

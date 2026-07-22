@@ -55,7 +55,7 @@ LST_PERIODO = ("2020-01-01", "2025-01-01")
 # Ponto-âncora para análises de caminhabilidade (equipamento de referência).
 # TODO: ESTE VALOR ESTÁ ERRADO — cai fora do BBOX acima (chute antigo, feito
 # junto com a bbox anterior que estava deslocada ~7 km). Precisa da coordenada
-# real da âncora antes de rodar o 11_analises.py. Usado só lá; não afeta 01-10.
+# real da âncora antes de rodar o 14_analises.py. Usado só lá; não afeta 01-13.
 ANCORA_NOME  = "âncora"
 ANCORA_COORD = (-22.888, -47.163)  # (lat, lon), WGS84
 RAIO_ANCORA  = 450  # metros — referência de caminhabilidade
@@ -69,7 +69,7 @@ RAIO_ANCORA  = 450  # metros — referência de caminhabilidade
 OVERTURE_CONF_MIN = 0.75
 
 # ----------------------------------------------------------------------
-# APP de córregos (Código Florestal) — usado no 03c_app_corregos.py
+# APP de córregos (Código Florestal) — usado no 05_app_corregos.py
 # ----------------------------------------------------------------------
 # Largura mínima de Área de Preservação Permanente (Lei 12.651/2012, Art. 4º,
 # inciso I), medida a partir da hidrografia disponível (municipal, senão
@@ -80,7 +80,7 @@ OVERTURE_CONF_MIN = 0.75
 APP_LARGURA_MIN = 30  # metros
 
 # ----------------------------------------------------------------------
-# Mapa síntese (H3) — usado nos scripts 05_h3_dasimetrico.py e 11_analises.py
+# Mapa síntese (H3) — usado nos scripts 07_h3_dasimetrico.py e 14_analises.py
 # ----------------------------------------------------------------------
 H3_RESOLUCAO = 10  # ~15.000 m² por hexágono, ~123 m de lado
 
@@ -94,8 +94,8 @@ H3_PESOS = {
 }
 
 # ----------------------------------------------------------------------
-# Dados municipais (prefeitura) — usado no 03b_dados_municipais.py e no
-# 06b_indicadores_municipais.py
+# Dados municipais (prefeitura) — usado no 04_dados_municipais.py e no
+# 09_indicadores_municipais.py
 # ----------------------------------------------------------------------
 # Preferir dado municipal quando existir e for mais preciso; fallback para
 # nacional/global quando faltar ou tiver baixa qualidade (ver seção
@@ -110,7 +110,7 @@ MUNICIPIO_SLUG = MUNICIPIO.lower()
 # generic_name -> {"arquivo": stem do shapefile em
 # raw_dir/prefeituras_municipais/<slug>/t0/, "indicador_score": None ou a
 # chave de H3_PESOS que esta camada alimenta como fallback (1ª fonte
-# existente vence, resolvida em 11_analises.py::INDICADORES)}.
+# existente vence, resolvida em 14_analises.py::INDICADORES)}.
 # Dict vazio (cidade sem portal municipal utilizável) faz o pipeline seguir
 # idêntico ao comportamento sem dados municipais — nada aqui é obrigatório.
 #

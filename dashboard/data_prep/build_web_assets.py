@@ -10,7 +10,7 @@ O que faz   : Gera os assets do site (dashboard/) a partir do GeoPackage final
 Saída       : {REPORT_DIR}/ (fora do git): report.json, imgs/*.png, cópia do
               GeoPackage final (para download pelo site)
               dashboard/public/data/ (gitignored): cópia do acima
-Requer      : 10_build_geopackage.py e 11_analises.py já rodados.
+Requer      : 13_build_geopackage.py e 14_analises.py já rodados.
 
 O GeoPackage é copiado (não movido) para dentro de REPORT_DIR para virar um
 link de download no site — o entregável principal do diagnóstico continua
@@ -19,7 +19,7 @@ para quem só tem o link do site, não o Google Drive do projeto.
 
 A análise descritiva da área (texto específico do projeto, não genérico) vem
 de {LOCAL_DATA_DIR}/analise_area.md — mesmo lugar de outros inputs manuais do
-projeto (ver 09_dados_locais.py). Leitura tolerante: se não existir, o campo
+projeto (ver 12_dados_locais.py). Leitura tolerante: se não existir, o campo
 fica vazio e o site mostra a seção só quando o texto existir.
 
 Para adaptar: a lista MAPAS controla quais camadas/indicadores viram figura.
@@ -175,7 +175,7 @@ def render_categorico(hexg, contexto, m, out_png):
 
 def ler_analise_area():
     """Leitura tolerante: se o arquivo não existir, avisa e segue (mesmo
-    padrão de 09_dados_locais.py) — o site mostra a seção só quando houver
+    padrão de 12_dados_locais.py) — o site mostra a seção só quando houver
     texto."""
     if not ANALISE_AREA_MD.exists():
         print(f"  [aviso] análise da área não encontrada: {ANALISE_AREA_MD}")

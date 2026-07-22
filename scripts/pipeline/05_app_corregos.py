@@ -1,18 +1,18 @@
 """
-03c_app_corregos.py
---------------------
+05_app_corregos.py
+------------------
 O que faz   : Calcula a faixa de Área de Preservação Permanente (APP) ao
               longo de cursos d'água, aplicando a largura mínima do Código
               Florestal sobre a hidrografia disponível — prefere a
-              hidrografia municipal (03b_dados_municipais.py) e cai para o
+              hidrografia municipal (04_dados_municipais.py) e cai para o
               `waterway` do OSM (01_download_osm.py) quando não houver.
 Camadas     : app_corregos (polígono, buffer dissolvido)
 Saída       : {DATA_DIR}/app_corregos.gpkg
 Fonte       : {DATA_DIR}/municipais.gpkg::hidrografia[_lagos] (preferencial)
               ou {DATA_DIR}/osm.gpkg::hidrografia_osm (fallback)
-Requer      : 01 (fallback) e/ou 03b (preferencial) já rodados. Nenhum dos
+Requer      : 01 (fallback) e/ou 04 (preferencial) já rodados. Nenhum dos
               dois é obrigatório — sem hidrografia disponível, este script
-              avisa e não grava nada (mesmo estilo tolerante do 09).
+              avisa e não grava nada (mesmo estilo tolerante do 12).
 
 Método e limitação — LER ANTES DE MEXER
 ----------------------------------------
@@ -29,10 +29,10 @@ Ajuste `APP_LARGURA_MIN` se souber a largura real do curso d'água do projeto.
 Para adaptar: ajuste `APP_LARGURA_MIN` no config.py (metros). Nenhum nome de
               lugar fica hard-coded aqui — os nomes de camada de hidrografia
               (`hidrografia`, `hidrografia_lagos`, `hidrografia_osm`) são
-              convenção do 03b/01, não específicos de Campinas.
+              convenção do 04/01, não específicos de Campinas.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/03c_app_corregos.py
+              python ../../scripts/pipeline/05_app_corregos.py
 """
 
 import sys

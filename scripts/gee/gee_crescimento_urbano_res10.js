@@ -3,7 +3,7 @@
 // (2000→2020) por hexágono H3 res10 (GHSL)
 // ----------------------------------------------------------------------------
 // Produto NOVO (não existe no catálogo res9). Todos os outros indicadores do
-// score (11_analises.py) olham o estado PRESENTE do território. Este é o
+// score (14_analises.py) olham o estado PRESENTE do território. Este é o
 // único de caráter PROATIVO/PREVENTIVO: aponta hexágonos que urbanizaram
 // recentemente e provavelmente ainda não tiveram tempo de consolidar
 // infraestrutura verde/drenagem — candidatos a intervenção ANTES que o
@@ -71,7 +71,11 @@ var crescimento = era_nao_construido_2000.and(passou_a_construido_2020)
 // reduceRegions num único lote (MG, SP, PA, BA, PR, RS observados na prática)
 // — por isso todo UF é processado em lotes de CHUNK_SIZE via toList(count,
 // offset), não só os grandes.
-var CHUNK_SIZE = 700000;
+// 700000 gerava "Computed value is too large" na conta antiga; numa conta
+// com cota de memória menor (ex.: ee2-linafaccin), 700000 já deu "out of
+// memory" (Error code: 8). Reduzido pra dar mais folga por lote — se ainda
+// estourar, diminua mais.
+var CHUNK_SIZE = 150000;
 
 ufs.forEach(function (uf) {
   if (!ASSET_POR_UF[uf]) {

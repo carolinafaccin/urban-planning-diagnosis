@@ -1,7 +1,7 @@
 // ============================================================================
 // gee_lst_ndvi_res10.js — LST e NDVI médios por hexágono H3 res10
 // ----------------------------------------------------------------------------
-// Fallback do 07_cool_cities.py para cidades sem Cool Cities Lab, e base do
+// Fallback do 10_cool_cities.py para cidades sem Cool Cities Lab, e base do
 // catálogo nacional (raw_dir/gee/br_h3_res10/). Adaptado do e4 do
 // climate-injustice-index (que fez o Brasil em res9).
 //
@@ -106,7 +106,11 @@ var indicadores = lst_medio.addBands(ndvi_medio);
 // — por isso todo UF é processado em lotes de CHUNK_SIZE via toList(count,
 // offset), não só os grandes. UFs pequenos ficam com 1 lote (comportamento
 // idêntico a antes).
-var CHUNK_SIZE = 700000;
+// 700000 gerava "Computed value is too large" na conta antiga; numa conta
+// com cota de memória menor (ex.: ee2-linafaccin), 700000 já deu "out of
+// memory" (Error code: 8). Reduzido pra dar mais folga por lote — se ainda
+// estourar, diminua mais.
+var CHUNK_SIZE = 150000;
 
 ufs.forEach(function (uf) {
   if (!ASSET_POR_UF[uf]) {

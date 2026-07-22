@@ -1,5 +1,5 @@
 """
-09_dados_locais.py
+12_dados_locais.py
 ------------------
 O que faz   : Ingere os dados georreferenciados à mão (LOCAL_DATA_DIR) e os
               fornecidos pela prefeitura (SOLICITADOS_DATA_DIR) — uma camada
@@ -10,12 +10,12 @@ Fonte       : {DATA_DIR}/raw/local/*  e  {DATA_DIR}/raw/solicitados/*
 
 Estes arquivos são preenchidos pela equipe. O script é tolerante: se as
 pastas estiverem vazias, apenas avisa e não grava nada — o resto do pipeline
-segue e o 10_build_geopackage.py inclui o que existir.
+segue e o 13_build_geopackage.py inclui o que existir.
 
 Para adaptar: nada. Lê tudo que houver nas duas pastas do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/09_dados_locais.py
+              python ../../scripts/pipeline/12_dados_locais.py
 """
 
 import sys

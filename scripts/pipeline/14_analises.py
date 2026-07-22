@@ -1,12 +1,12 @@
 """
-11_analises.py
+14_analises.py
 --------------
 O que faz   : Calcula o score de prioridade por hexágono (mapas 16 e 17) e as
               análises derivadas de acesso. Lê h3_indicadores do GeoPackage
               final e grava h3_sintese (com score e classe de prioridade) +
               cobertura de transporte no mesmo .gpkg.
 Camadas     : h3_sintese, cobertura_onibus (e raio_ancora, se a âncora existir)
-Requer      : 10_build_geopackage.py já rodado.
+Requer      : 13_build_geopackage.py já rodado.
 
 Score de prioridade
 -------------------
@@ -24,7 +24,7 @@ renormalizados. A coluna `tem_populacao` distingue os dois casos, e
 Cada indicador aceita mais de uma fonte (ex.: LST do Cool Cities OU do GEE),
 então o mesmo script serve a cidades com e sem Cool Cities. Mesmo mecanismo
 usado para preferir dado MUNICIPAL sobre nacional/global quando disponível
-(ver `deficit_verde`: `municipal_pct_verde`, do 06b_indicadores_municipais.py,
+(ver `deficit_verde`: `municipal_pct_verde`, do 09_indicadores_municipais.py,
 vem primeiro — cidade sem dado municipal cai para Cool Cities/GEE igual a
 antes). Ver framework de 3 categorias no CLAUDE.md.
 
@@ -32,7 +32,7 @@ Para adaptar: ajuste H3_PESOS no config.py. As fontes de cada indicador estão
               em INDICADORES abaixo (primeira coluna existente vence).
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/11_analises.py
+              python ../../scripts/pipeline/14_analises.py
 """
 
 import sys

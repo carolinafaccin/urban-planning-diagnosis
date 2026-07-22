@@ -27,7 +27,7 @@ tem seu próprio arquivo. Reexecuções com o mesmo bbox filtram do cache sem
 rebaixar. Apague o(s) arquivo(s) para forçar novo download.
 
 A fração construída por hexágono (pct_construido, p/ o score) é calculada no
-10_build_geopackage.py, que tem a malha H3 — este script só entrega a camada.
+13_build_geopackage.py, que tem a malha H3 — este script só entrega a camada.
 
 Para adaptar: nada específico. Usa BBOX e OVERTURE_CONF_MIN do config.py.
 

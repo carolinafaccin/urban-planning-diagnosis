@@ -1,5 +1,5 @@
 """
-04_cnefe.py
+06_cnefe.py
 -----------
 O que faz   : Varre o CNEFE 2022 da UF do projeto UMA vez, recorta os
               endereços dos setores da área de estudo e produz os insumos
@@ -9,7 +9,7 @@ O que faz   : Varre o CNEFE 2022 da UF do projeto UMA vez, recorta os
                 (b) uso do solo por hexágono H3 (contagem de endereços por
                     espécie — método da Ana Maffini);
                 (c) domicílios por (hexágono, setor) — peso da interpolação
-                    dasimétrica no 05_h3_dasimetrico.py.
+                    dasimétrica no 07_h3_dasimetrico.py.
 Camadas     : — (só tabelas/parquet; a geometria dos hexágonos é montada no 05)
 Saídas      : {DATA_DIR}/processed/cnefe_recorte.parquet      (geoparquet, pontos)
               {DATA_DIR}/processed/cnefe_uso_h3.parquet        (h3_id → cat_*)
@@ -44,7 +44,7 @@ Para adaptar: nada específico de Campinas. Usa IBGE_COD_MUN (p/ achar a UF e
               filtrar o município) e H3_RESOLUCAO do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/04_cnefe.py
+              python ../../scripts/pipeline/06_cnefe.py
               (varredura de UF grande leva alguns minutos; é uma vez só.)
 """
 

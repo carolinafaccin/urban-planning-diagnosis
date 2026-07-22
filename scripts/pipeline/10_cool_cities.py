@@ -1,5 +1,5 @@
 """
-07_cool_cities.py
+10_cool_cities.py
 -----------------
 O que faz   : Agrega os rasters do Cool Cities Lab por hexágono da malha
               H3, via estatística zonal (média). Fornece LST, cobertura vegetal
@@ -10,7 +10,7 @@ Saída       : {DATA_DIR}/processed/h3_cool_cities.parquet (h3_id → colunas)
 Fonte       : raw_dir/wri/cool-cities-lab/BRA-<Cidade>/
                 baseline/    — rasters da mancha urbana (cobrem a cidade toda)
                 scenarios/   — rasters da "accelerator_area" (≈ área de estudo)
-Requer      : 05_h3_dasimetrico.py já rodado (geometria de h3_base).
+Requer      : 07_h3_dasimetrico.py já rodado (geometria de h3_base).
 
 Cobertura / disponibilidade
 ---------------------------
@@ -28,7 +28,7 @@ Para adaptar: aponte CCL_DIR para a pasta BRA-<Cidade> correspondente. A lista
               revisar se a nomenclatura do CCL mudar.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/07_cool_cities.py
+              python ../../scripts/pipeline/10_cool_cities.py
 """
 
 import sys
