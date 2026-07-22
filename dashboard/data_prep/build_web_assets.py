@@ -31,6 +31,8 @@ Para adaptar: a lista MAPAS controla quais camadas/indicadores viram figura.
 
 Como rodar  : cd projetos/campinas
               python ../../dashboard/data_prep/build_web_assets.py
+              ou, a partir da raiz do repo (ver scripts/_projeto.py):
+              python dashboard/data_prep/build_web_assets.py --projeto campinas
 """
 
 import json
@@ -352,7 +354,16 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, str(Path.cwd()))
-    import config
-    main(config)
+    import argparse
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
+    from _projeto import carregar_config
+
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--projeto", default=None, metavar="SLUG",
+                     help="slug em projetos/<slug>/ — permite rodar sem 'cd' (senão usa "
+                          "DIAGNOSTICO_PROJETO ou o cwd, ver scripts/_projeto.py)")
+    args = ap.parse_args()
+
+    main(carregar_config(args.projeto))
     print("\nConcluído.")

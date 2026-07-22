@@ -14,6 +14,8 @@ Uso         : a partir da pasta do projeto (onde está o config.py):
                                                                    # (ex.: deploy de teste
                                                                    # antes de publicar
                                                                    # no branch definitivo)
+              ou, a partir da raiz do repo, sem cd (ver scripts/_projeto.py):
+                python dashboard/deploy.py --projeto campinas
 Requer      : Node.js + wrangler autenticado (`wrangler login`); GeoPackage do
               projeto já construído (build_geopackage.py + analises.py).
 Config      : lê PAGES_PROJECT/PAGES_BRANCH do config.py do projeto. Genérico —
@@ -61,21 +63,19 @@ def main(cfg, skip_data=False, branch=None):
 
 
 if __name__ == "__main__":
-    if not Path("config.py").exists():
-        sys.exit(
-            "erro: rode a partir da pasta do projeto (onde está o config.py).\n"
-            "  ex.: cd projetos/campinas && python ../../dashboard/deploy.py"
-        )
-
-    sys.path.insert(0, str(Path.cwd()))
-    import config
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    from _projeto import carregar_config
 
     ap = argparse.ArgumentParser(description="Deploy do dashboard/ no Cloudflare Pages.")
+    ap.add_argument("--projeto", default=None, metavar="SLUG",
+                     help="slug em projetos/<slug>/ — permite rodar sem 'cd' (senão usa "
+                          "DIAGNOSTICO_PROJETO ou o cwd, ver scripts/_projeto.py)")
     ap.add_argument("--skip-data", action="store_true",
                      help="Não regenera report.json/imgs antes do deploy.")
-    ap.add_argument("--branch", default=config.PAGES_BRANCH,
-                     help=f"Sobrescreve o branch de deploy (padrão: {config.PAGES_BRANCH}).")
+    ap.add_argument("--branch", default=None,
+                     help="Sobrescreve o branch de deploy (padrão: PAGES_BRANCH do config.py).")
     args = ap.parse_args()
 
+    config = carregar_config(args.projeto)
     main(config, skip_data=args.skip_data, branch=args.branch)
     print("\nConcluído.")

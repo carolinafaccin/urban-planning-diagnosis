@@ -24,8 +24,12 @@ urban-planning-diagnosis/
 │   └── config.local.json       # seus caminhos locais (fora do git)
 │
 ├── scripts/                    # genéricos — servem a qualquer cidade
-│   ├── pipeline/                # 01_… a 14_…  (constroem o GeoPackage)
-│   └── gee/                     # fallback LST/NDVI + catálogo nacional res10
+│   ├── run.py                    # orquestrador (roda o pipeline inteiro)
+│   ├── manifest.py                # ordem canônica de execução
+│   ├── novo_projeto.py            # scaffold de projetos/<slug>/config.py
+│   ├── _projeto.py                 # resolução de config.py (cwd/--projeto/env var)
+│   ├── pipeline/                  # scripts do pipeline (constroem o GeoPackage)
+│   └── gee/                       # fallback LST/NDVI + catálogo nacional res10
 │
 ├── dashboard/                  # site React (Vite+TS+Tailwind) — diagnóstico
 │   ├── data_prep/                # Python: GeoPackage → report.json + PNGs
@@ -97,15 +101,15 @@ No `config.py` isso vira `RAW_CATALOG` (raiz de leitura) e `DATA_DIR`
 
 Sempre a partir da pasta do projeto — o `cd` é obrigatório, não cosmético
 (o `config.py` é importado do diretório de trabalho). O orquestrador
-(`scripts/pipeline/run.py`) roda o pipeline inteiro, na ordem definida em
-`scripts/pipeline/manifest.py`, terminando no site publicado:
+(`scripts/run.py`) roda o pipeline inteiro, na ordem definida em
+`scripts/manifest.py`, terminando no site publicado:
 
 ```bash
 cd projetos/campinas
-python ../../scripts/pipeline/run.py                          # pipeline inteiro + site + deploy
-python ../../scripts/pipeline/run.py --from h3_dasimetrico     # a partir de um passo
-python ../../scripts/pipeline/run.py --only analises           # só um passo
-python ../../scripts/pipeline/run.py --skip deploy             # pula um passo (ex.: iterando sem publicar)
+python ../../scripts/run.py                          # pipeline inteiro + site + deploy
+python ../../scripts/run.py --from h3_dasimetrico     # a partir de um passo
+python ../../scripts/run.py --only analises           # só um passo
+python ../../scripts/run.py --skip deploy             # pula um passo (ex.: iterando sem publicar)
 ```
 
 Cada script também roda isolado, sem o orquestrador (útil iterando em um
@@ -121,6 +125,16 @@ Passos que dependem de dado/config manual (ex.: `dados_municipais`,
 seguem sem travar quando o dado não existe — o resumo final do `run.py`
 lista o que foi pulado e por quê.
 
+**Rodando sem `cd`, a partir da raiz do repo** (ver `scripts/_projeto.py`):
+qualquer script individual ou o `run.py` aceitam `--projeto <slug>` (quando
+o script expõe o flag, caso de `run.py`/`deploy.py`/`build_web_assets.py`)
+ou a variável de ambiente `DIAGNOSTICO_PROJETO`:
+
+```bash
+python scripts/run.py --projeto campinas
+DIAGNOSTICO_PROJETO=campinas python scripts/pipeline/download_osm.py
+```
+
 ## Replicando para uma nova cidade/bairro
 
 ```bash
@@ -131,12 +145,12 @@ python scripts/novo_projeto.py <slug> --municipio "Sorocaba" --uf SP \
 Gera `projetos/<slug>/config.py` a partir do template
 (`projetos/_template/config.py`) com a identificação básica preenchida. O
 comando imprime um checklist do que ainda exige decisão humana antes de
-rodar (BBOX, CRS_PROJETO, ANCORA_COORD, H3_PESOS, CAMADAS_MUNICIPAIS,
-CAMADA_INTERVENCAO — todos marcados `# TODO(scaffold)` no arquivo gerado).
+rodar (BBOX, CRS_PROJETO, H3_PESOS, CAMADAS_MUNICIPAIS, CAMADA_INTERVENCAO —
+todos marcados `# TODO(scaffold)` no arquivo gerado).
 
 ```bash
 cd projetos/<slug>
-python ../../scripts/pipeline/run.py
+python ../../scripts/run.py
 ```
 
 Nenhum script precisa ser editado — nenhum nome de lugar, coordenada ou
@@ -153,8 +167,8 @@ opcionais), `cnefe`/`h3_dasimetrico` montam a malha e recebem o Censo por
 seguintes anexam indicadores de raster/pontos por hexágono
 (`indicadores_municipais` opcional), e `build_geopackage`/`analises`
 consolidam e pontuam. A ordem canônica de execução vive em
-`scripts/pipeline/manifest.py`, não no nome dos arquivos — ver
-`scripts/pipeline/run.py`.
+`scripts/manifest.py`, não no nome dos arquivos — ver
+`scripts/run.py`.
 
 | Script (`scripts/pipeline/`) | O que faz | Saída |
 | --- | --- | --- |
@@ -171,7 +185,7 @@ consolidam e pontuam. A ordem canônica de execução vive em
 | `queimadas.py` | Focos de calor (INPE) por hexágono | `h3_queimadas.parquet` |
 | `dados_locais.py` | Ingere geojsons à mão + fornecidos pela prefeitura | `locais.gpkg` |
 | `build_geopackage.py` | Consolida hexágonos + vetores no `.gpkg` final, grava `_metadados` | `{PROJECT_NAME}.gpkg` |
-| `analises.py` | Score de prioridade, cobertura de ônibus, raio de caminhabilidade | `h3_sintese`, ... |
+| `analises.py` | Score de prioridade, cobertura de ônibus | `h3_sintese`, ... |
 
 **`scripts/gee/`** — fallback de LST/NDVI para cidades sem Cool Cities Lab, e
 base do catálogo nacional res10: `gee_centroides_res10.py` (gera o CSV de

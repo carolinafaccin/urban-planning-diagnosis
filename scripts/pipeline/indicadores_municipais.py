@@ -122,6 +122,6 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, str(Path.cwd()))
-    import config
-    main(config)
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from _projeto import carregar_config
+    main(carregar_config())

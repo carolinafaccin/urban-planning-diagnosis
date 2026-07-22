@@ -5,7 +5,7 @@ O que faz   : Calcula o score de prioridade por hexágono (mapas 16 e 17) e as
               análises derivadas de acesso. Lê h3_indicadores do GeoPackage
               final e grava h3_sintese (com score e classe de prioridade) +
               cobertura de transporte no mesmo .gpkg.
-Camadas     : h3_sintese, cobertura_onibus (e raio_ancora, se a âncora existir)
+Camadas     : h3_sintese, cobertura_onibus
 Requer      : build_geopackage.py já rodado.
 
 Score de prioridade
@@ -43,9 +43,8 @@ import numpy as np
 import pandas as pd
 
 # Preenchidos por main(cfg) — usados como globais pelas funções auxiliares
-# abaixo (calcular_score, cobertura_onibus, raio_ancora), chamadas de dentro
-# de main.
-ANCORA_COORD = BBOX = CRS_PROJETO = CRS_WGS84 = GPKG_PATH = H3_PESOS = RAIO_ANCORA = None
+# abaixo (calcular_score, cobertura_onibus), chamadas de dentro de main.
+CRS_PROJETO = GPKG_PATH = H3_PESOS = None
 
 # indicador (chave de H3_PESOS) → definição de como obtê-lo.
 #   fontes    : colunas candidatas, em ordem de preferência (1ª existente vence)
@@ -144,28 +143,12 @@ def cobertura_onibus(hexg):
     return gpd.GeoDataFrame({"raio_m": [BUFFER_ONIBUS]}, geometry=[cobertura], crs=CRS_PROJETO)
 
 
-def raio_ancora(hexg):
-    """Raio de caminhabilidade em torno da âncora, se ela cair dentro do bbox."""
-    lat, lon = ANCORA_COORD
-    if not (BBOX["south"] <= lat <= BBOX["north"] and BBOX["west"] <= lon <= BBOX["east"]):
-        print(f"  [aviso] ANCORA_COORD {ANCORA_COORD} está fora do BBOX — raio_ancora "
-              f"não gerado (confirme ANCORA_COORD no config.py).")
-        return None
-    ponto = gpd.GeoSeries.from_xy([lon], [lat], crs=CRS_WGS84).to_crs(CRS_PROJETO)
-    return gpd.GeoDataFrame({"raio_m": [RAIO_ANCORA]},
-                            geometry=[ponto.buffer(RAIO_ANCORA).iloc[0]], crs=CRS_PROJETO)
-
-
 def main(cfg):
-    global ANCORA_COORD, BBOX, CRS_PROJETO, CRS_WGS84, GPKG_PATH, H3_PESOS, RAIO_ANCORA
+    global CRS_PROJETO, GPKG_PATH, H3_PESOS
 
-    ANCORA_COORD = cfg.ANCORA_COORD
-    BBOX = cfg.BBOX
     CRS_PROJETO = cfg.CRS_PROJETO
-    CRS_WGS84 = cfg.CRS_WGS84
     GPKG_PATH = cfg.GPKG_PATH
     H3_PESOS = cfg.H3_PESOS
-    RAIO_ANCORA = cfg.RAIO_ANCORA
 
     hexg = gpd.read_file(GPKG_PATH, layer="h3_indicadores")
     hexg["tem_populacao"] = hexg["qtd_dom"].fillna(0) > 0
@@ -185,15 +168,10 @@ def main(cfg):
         cob.to_file(GPKG_PATH, layer="cobertura_onibus", driver="GPKG")
         print(f"\n  [cobertura_onibus] buffer {BUFFER_ONIBUS} m salvo.")
 
-    raio = raio_ancora(hexg)
-    if raio is not None:
-        raio.to_file(GPKG_PATH, layer="raio_ancora", driver="GPKG")
-        print(f"  [raio_ancora] raio {RAIO_ANCORA} m salvo.")
-
     print("\nConcluído.")
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, str(Path.cwd()))
-    import config
-    main(config)
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from _projeto import carregar_config
+    main(carregar_config())

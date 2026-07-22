@@ -6,7 +6,7 @@ O que faz   : Cria projetos/<slug>/config.py a partir do template em
               identificação básica (PROJECT_NAME, MUNICIPIO, UF,
               IBGE_COD_MUN, TITULO_PROJETO, PAGES_BRANCH). Não roda nada do
               pipeline — só cria o arquivo de configuração.
-Não preenche: BBOX, ANCORA_COORD, CAMADAS_MUNICIPAIS e outros campos
+Não preenche: BBOX, CAMADAS_MUNICIPAIS e outros campos
               marcados "# TODO(scaffold)" no template — exigem decisão
               humana (desenhar a área de estudo, escolher a âncora, etc.) e
               não são inventados aqui. Ver o checklist impresso ao final.
@@ -80,9 +80,6 @@ def main():
         "\nPendências antes de rodar o pipeline (procure '# TODO(scaffold)' no arquivo):\n"
         "  - BBOX: desenhe a área de estudo (ex.: geojson.io) e preencha os 4 vértices.\n"
         "  - CRS_PROJETO: confirme a zona UTM/SIRGAS 2000 correta da região.\n"
-        "  - ANCORA_COORD / ANCORA_NOME / RAIO_ANCORA: ponto-âncora de caminhabilidade,\n"
-        "    se houver um natural (senão deixe fora do BBOX de propósito — o pipeline\n"
-        "    avisa e pula essa análise sem travar).\n"
         "  - H3_PESOS: reavalie os pesos padrão para o território.\n"
         "  - CAMADAS_MUNICIPAIS: opcional — só depois de catalogar/baixar o portal da\n"
         "    prefeitura (ver CLAUDE.md, 'Procedimento para catalogar/baixar o portal\n"

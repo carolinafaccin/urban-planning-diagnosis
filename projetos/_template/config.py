@@ -10,10 +10,8 @@ Este arquivo tem 3 categorias de campo:
 1. Preenchidos automaticamente por scripts/novo_projeto.py (identificação
    básica) — confira, mas normalmente não precisam de edição manual extra.
 2. Marcados "# TODO(scaffold)" — exigem decisão/dado humano antes de rodar
-   o pipeline (BBOX, ANCORA_COORD, pesos do score). O pipeline AVISA e
-   segue sem travar quando um desses está ausente/errado (ex.:
-   ANCORA_COORD fora do BBOX só pula o raio_ancora em analises.py) — mas
-   os resultados vão refletir a lacuna.
+   o pipeline (BBOX, pesos do score). O pipeline AVISA e segue sem travar
+   quando um desses está ausente — mas os resultados vão refletir a lacuna.
 3. Nunca editados à mão em nenhum projeto: RAW_CATALOG, DATA_DIR, REPO_ROOT
    e os demais caminhos derivados no fim do arquivo — resolvidos por
    código a partir de config/config.local.json.
@@ -81,14 +79,6 @@ CRS_WGS84   = "EPSG:4326"   # CRS de entrada da maioria das fontes (OSM, IBGE, G
 
 # Período de referência para a temperatura de superfície (LST)
 LST_PERIODO = ("2020-01-01", "2025-01-01")
-
-# TODO(scaffold): ponto-âncora para análises de caminhabilidade (equipamento
-# de referência, ex. praça/escola/UBS central à intervenção). Se não houver
-# um natural, deixe ANCORA_COORD fora do BBOX de propósito — o pipeline avisa
-# e pula essa análise sem travar (ver analises.py::raio_ancora).
-ANCORA_NOME  = "âncora"
-ANCORA_COORD = (0.0, 0.0)  # (lat, lon), WGS84
-RAIO_ANCORA  = 450  # metros — referência de caminhabilidade
 
 # ----------------------------------------------------------------------
 # Edificações (Overture Maps) — usado no overture_edificacoes.py

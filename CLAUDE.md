@@ -162,33 +162,45 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
 - **Arquivos de `scripts/pipeline/` não têm número no nome** (decisão
   2026-07-22: numeração como `01_`/`14_` acoplava ordem de execução a nome de
   arquivo — inserir um passo no meio exigia renumerar tudo). A ordem canônica
-  vive só em `scripts/pipeline/manifest.py` (lista `PASSOS`, com `opcional`
-  marcando passos que dependem de dado/config manual).
+  vive só em `scripts/manifest.py` (lista `PASSOS`, com `opcional` marcando
+  passos que dependem de dado/config manual).
 - Cada script expõe `def main(cfg):` recebendo o **módulo** `config` inteiro
-  (não os símbolos soltos) — permite que `scripts/pipeline/run.py`
-  (orquestrador) importe e chame cada passo em processo, em vez de disparar
-  um subprocess por script. Uso standalone continua idêntico: o bloco
-  `if __name__ == "__main__":` faz o `sys.path.insert`/`import config` de
-  sempre e chama `main(config)`. Convenção assumida: sempre um projeto por
-  processo Python — não há suporte a rodar duas cidades na mesma invocação
-  (evita o risco de `sys.modules["config"]` cacheado entre projetos).
-- `scripts/pipeline/run.py` roda o pipeline inteiro (ou um recorte, via
-  `--from`/`--only`/--`skip`), terminando no site publicado (últimos passos
-  do manifesto: `build_web_assets` + `deploy`, este último facilmente pulável
-  com `--skip deploy`). Convenção `SKIP:` — um passo que pula uma sub-etapa
-  por falta de dado manual imprime uma linha começando literalmente com
-  `SKIP:`; o orquestrador captura essas linhas (sem deixar de exibi-las em
-  tempo real) e resume no final o que rodou/pulou e por quê. Não inventar
-  outro mecanismo de sinalização — estender essa convenção.
+  (não os símbolos soltos) — permite que `scripts/run.py` (orquestrador)
+  importe e chame cada passo em processo, em vez de disparar um subprocess
+  por script. Uso standalone continua idêntico. Convenção assumida: sempre
+  um projeto por processo Python — não há suporte a rodar duas cidades na
+  mesma invocação (evita o risco de `sys.modules["config"]` cacheado entre
+  projetos).
+- **`scripts/run.py` e `scripts/manifest.py` moram em `scripts/` (não em
+  `scripts/pipeline/`)**: o orquestrador encadeia passos de `dashboard/`
+  (`build_web_assets`, `deploy`) além dos de `pipeline/`, então mora um nível
+  acima, junto de `scripts/_projeto.py` — o helper compartilhado que os
+  dois usam. Roda o pipeline inteiro (ou um recorte, via `--from`/`--only`/
+  `--skip`), terminando no site publicado (últimos passos do manifesto:
+  `build_web_assets` + `deploy`, este último facilmente pulável com
+  `--skip deploy`). Convenção `SKIP:` — um passo que pula uma sub-etapa por
+  falta de dado manual imprime uma linha começando literalmente com `SKIP:`;
+  o orquestrador captura essas linhas (sem deixar de exibi-las em tempo
+  real) e resume no final o que rodou/pulou e por quê. Não inventar outro
+  mecanismo de sinalização — estender essa convenção.
+- **Rodar sem `cd`, a partir da raiz do repo** (`scripts/_projeto.py`,
+  `carregar_config()`): prioridade `--projeto <slug>` (quando o script expõe
+  o flag: `run.py`, `dashboard/deploy.py`, `dashboard/data_prep/
+  build_web_assets.py`) → variável de ambiente `DIAGNOSTICO_PROJETO` → cwd
+  contém `config.py` (convenção antiga, ainda funciona). Os 14 scripts de
+  `scripts/pipeline/` não expõem `--projeto` individualmente (evita
+  duplicar argparse em cada um) — usam a env var ou o cwd. `_projeto.py` é
+  prefixado com `_` de propósito: não é um passo do pipeline, não entra em
+  `manifest.py`.
 - `scripts/novo_projeto.py <slug> --municipio ... --uf ... --ibge-cod-mun ...
   --titulo ...` gera `projetos/<slug>/config.py` a partir do template em
   `projetos/_template/config.py`, preenchendo só a identificação básica
   (`PROJECT_NAME`, `MUNICIPIO`, `UF`, `IBGE_COD_MUN`, `TITULO_PROJETO`,
   `PAGES_BRANCH` derivado do slug). Campos que exigem decisão humana (`BBOX`,
-  `CRS_PROJETO`, `ANCORA_COORD`, `H3_PESOS`, `CAMADAS_MUNICIPAIS`,
-  `CAMADA_INTERVENCAO`) ficam marcados `# TODO(scaffold)` no arquivo gerado
-  — o scaffold não inventa esses valores, só reduz a fricção de criar o
-  arquivo. `MUNICIPIO_SLUG` usa slugify de verdade (`_slugificar`, remove
+  `CRS_PROJETO`, `H3_PESOS`, `CAMADAS_MUNICIPAIS`, `CAMADA_INTERVENCAO`)
+  ficam marcados `# TODO(scaffold)` no arquivo gerado — o scaffold não
+  inventa esses valores, só reduz a fricção de criar o arquivo.
+  `MUNICIPIO_SLUG` usa slugify de verdade (`_slugificar`, remove
   acento/espaço) — `MUNICIPIO.lower()` sozinho quebrava para município com
   espaço no nome (ex. "São José dos Campos"); só funcionava em Campinas por
   acidente (nome de uma palavra só).
@@ -348,12 +360,13 @@ pip install -r requirements.txt
   risco/UTCI). Continua como **fallback** para cidades sem Cool Cities e como
   base do catálogo nacional res10 — scripts `gee_*` prontos; a extração nacional
   é um job à parte.
-- **Pendências específicas do projeto** (geojsons à mão, dados da prefeitura,
-  coordenada da âncora — `ANCORA_COORD` cai fora do bbox, marcado `TODO`, só o
-  `14` usa — tratado com segurança: `raio_ancora()` pula a camada quando a
-  âncora está fora do bbox, e essa camada não aparece no site) ficam na lista
-  de tarefas em `projetos/<cidade>/ref/` (fora do git).
-- Educação: o `06` já extrai ensino/saúde do CNEFE geocodificados — pode
+- **Pendências específicas do projeto** (geojsons à mão, dados da prefeitura)
+  ficam na lista de tarefas em `projetos/<cidade>/ref/` (fora do git).
+  Análise de caminhabilidade em torno de uma âncora (`ANCORA_COORD`/
+  `raio_ancora()`) foi removida do `analises.py` em 2026-07-22 — não fazia
+  parte do escopo do produto; ficou só `cobertura_onibus` (buffer de
+  transporte público, independente de âncora).
+- Educação: `cnefe.py` já extrai ensino/saúde do CNEFE geocodificados — pode
   dispensar uma fonte INEP separada.
 - **Dados municipais (prefeitura) integrados** via `dados_municipais.py` e
   `indicadores_municipais.py`, com fallback para nacional/global

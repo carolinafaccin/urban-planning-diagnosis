@@ -77,15 +77,6 @@ CRS_WGS84   = "EPSG:4326"   # CRS de entrada da maioria das fontes (OSM, IBGE, G
 # Período de referência para a temperatura de superfície (LST)
 LST_PERIODO = ("2020-01-01", "2025-01-01")
 
-# Ponto-âncora para análises de caminhabilidade (equipamento de referência).
-# TODO: ESTE VALOR ESTÁ ERRADO — cai fora do BBOX acima (chute antigo, feito
-# junto com a bbox anterior que estava deslocada ~7 km). Precisa da coordenada
-# real da âncora antes de rodar o analises.py. Usado só lá; não afeta os
-# demais passos do pipeline.
-ANCORA_NOME  = "âncora"
-ANCORA_COORD = (-22.888, -47.163)  # (lat, lon), WGS84
-RAIO_ANCORA  = 450  # metros — referência de caminhabilidade
-
 # ----------------------------------------------------------------------
 # Edificações (Overture Maps) — usado no overture_edificacoes.py
 # ----------------------------------------------------------------------

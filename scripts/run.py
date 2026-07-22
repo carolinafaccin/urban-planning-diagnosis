@@ -1,23 +1,27 @@
 """
 run.py
 ------
-Orquestrador do pipeline: roda os scripts de scripts/pipeline/ na ordem de
-manifest.py, chamando main(config) de cada um em vez de disparar um
-processo Python separado por passo.
+Orquestrador do pipeline: roda os passos de scripts/pipeline/ (+ site/deploy
+de dashboard/) na ordem de manifest.py, chamando main(config) de cada um em
+vez de disparar um processo Python separado por passo.
 
-Por que mora em scripts/pipeline/ (e não na raiz do repo): os scripts do
-pipeline também moram aqui, e o manifesto (manifest.py) é lido por caminho
-relativo a este arquivo — manter os três juntos evita ter que descobrir
-"onde fica o pipeline" a partir de dois lugares diferentes no repo. A regra
-de "rodar a partir da pasta do projeto" (cd projetos/<cidade>) é a mesma dos
-outros scripts, então isso não é uma inconsistência nova.
+Por que mora em scripts/ (e não em scripts/pipeline/): este orquestrador
+também encadeia passos de dashboard/ (build_web_assets, deploy) — não é só
+"mais um passo do pipeline", é o script que amarra pipeline + site. Mora ao
+lado de manifest.py e de _projeto.py (resolução de config compartilhada com
+os scripts individuais).
 
-Como rodar  : a partir da pasta do projeto (onde está o config.py):
-              cd projetos/campinas
-              python ../../scripts/pipeline/run.py
-              python ../../scripts/pipeline/run.py --from h3_dasimetrico
-              python ../../scripts/pipeline/run.py --only analises
-              python ../../scripts/pipeline/run.py --skip dados_municipais --skip indicadores_municipais
+Como rodar:
+  A partir da pasta do projeto (convenção antiga, ainda funciona):
+    cd projetos/campinas
+    python ../../scripts/run.py
+    python ../../scripts/run.py --from h3_dasimetrico
+    python ../../scripts/run.py --only analises
+    python ../../scripts/run.py --skip dados_municipais --skip indicadores_municipais
+
+  A partir da raiz do repo, sem cd (ver scripts/_projeto.py):
+    python scripts/run.py --projeto campinas
+    DIAGNOSTICO_PROJETO=campinas python scripts/run.py
 
 Convenção "SKIP:" — um passo que decide pular uma sub-etapa por falta de
 dado manual (ex.: CAMADAS_MUNICIPAIS vazio, geojson/analise_area.md
@@ -33,10 +37,12 @@ import io
 import sys
 from pathlib import Path
 
-PIPELINE_DIR = Path(__file__).resolve().parent
-REPO_ROOT = PIPELINE_DIR.parent.parent
-sys.path.insert(0, str(PIPELINE_DIR))
+SCRIPTS_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPTS_DIR.parent
+PIPELINE_DIR = SCRIPTS_DIR / "pipeline"
+sys.path.insert(0, str(SCRIPTS_DIR))
 from manifest import PASSOS  # noqa: E402
+from _projeto import carregar_config  # noqa: E402
 
 
 class _TeeCapturaSkip(io.TextIOBase):
@@ -122,6 +128,9 @@ def selecionar_passos(passos, so_este, a_partir_de, pular):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--projeto", default=None, metavar="SLUG",
+                        help="slug em projetos/<slug>/ — permite rodar sem 'cd' (senão usa "
+                             "DIAGNOSTICO_PROJETO ou o cwd, ver scripts/_projeto.py)")
     parser.add_argument("--from", dest="a_partir_de", metavar="MODULO",
                         help="roda a partir deste passo, inclusive (ex.: h3_dasimetrico)")
     parser.add_argument("--only", dest="so_este", metavar="MODULO",
@@ -130,8 +139,7 @@ def main():
                         help="pula este passo (repetível), mesmo que não seja opcional")
     args = parser.parse_args()
 
-    sys.path.insert(0, str(Path.cwd()))
-    import config
+    config = carregar_config(args.projeto)
 
     passos = selecionar_passos(PASSOS, args.so_este, args.a_partir_de, set(args.pular))
     if not passos:
