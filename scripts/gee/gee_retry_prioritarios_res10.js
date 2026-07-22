@@ -44,7 +44,14 @@ var TOTAL_POR_UF = {
 // UFs de `ufsFalhos`, em lotes de CHUNK_SIZE.
 function exportarProduto(imagem, ufsFalhos, nomeProduto, scale, selectors) {
   ufsFalhos.forEach(function (uf) {
-    var pts = ee.FeatureCollection(ASSET_POR_UF[uf]);
+    // .sort('cd_setor') é o que faz o chunking por índice (abaixo) funcionar:
+    // cod_setor do IBGE é UF(2)+município(5)+distrito(2)+subdistrito(2)+setor(4),
+    // então ordenar por ele agrupa os pontos por município (região compacta) antes
+    // de cortar em lotes — sem isso, toList(CHUNK_SIZE, offset) pega uma fatia
+    // arbitrária que pode ter pontos espalhados pelo estado inteiro, e o
+    // reduceRegions precisa carregar o raster pra essa extensão toda (era a causa
+    // do "out of memory" mesmo com CHUNK_SIZE reduzido).
+    var pts = ee.FeatureCollection(ASSET_POR_UF[uf]).sort('cd_setor');
     var total = TOTAL_POR_UF[uf];
     var nLotes = Math.max(1, Math.ceil(total / CHUNK_SIZE));
 
