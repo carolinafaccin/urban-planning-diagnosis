@@ -13,6 +13,4 @@ export interface Report {
   dist: Record<string, number>;
   cards: ReportCard[];
   analise_md: string;
-  gpkg_arquivo: string | null;
-  gpkg_tamanho_mb: number | null;
 }

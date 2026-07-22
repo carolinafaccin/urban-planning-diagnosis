@@ -162,6 +162,20 @@ def gerar_localizacao():
     uf = uf.to_crs(CRS_PROJETO)
     municipios_uf = municipios_uf.to_crs(CRS_PROJETO)
 
+    # Simplificação: a malha do IBGE vem com detalhe de costa/fronteira muito
+    # mais fino do que um mapa de localização (escala país/UF) precisa — sem
+    # isso, essas 3 camadas sozinhas somam ~42 MB de geometria e estouram o
+    # limite de 25 MiB por arquivo do Cloudflare Pages (usado pelo
+    # dashboard/deploy.py pra servir o .gpkg pra download). Tolerância em
+    # metros (CRS_PROJETO já é métrico) — 200 m é imperceptível numa vista de
+    # país/estado e reduz pra ~2 MB no total.
+    SIMPLIFY_TOLERANCE_M = 200
+    pais["geometry"] = pais.geometry.simplify(SIMPLIFY_TOLERANCE_M, preserve_topology=True)
+    uf["geometry"] = uf.geometry.simplify(SIMPLIFY_TOLERANCE_M, preserve_topology=True)
+    municipios_uf["geometry"] = municipios_uf.geometry.simplify(
+        SIMPLIFY_TOLERANCE_M, preserve_topology=True
+    )
+
     pais.to_file(LOCALIZACAO_GPKG_PATH, layer="pais", driver="GPKG")
     uf.to_file(LOCALIZACAO_GPKG_PATH, layer="uf", driver="GPKG")
     municipios_uf.to_file(LOCALIZACAO_GPKG_PATH, layer="municipios_uf", driver="GPKG")

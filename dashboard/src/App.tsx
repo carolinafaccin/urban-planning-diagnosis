@@ -7,7 +7,6 @@ import StatsBar from "./components/StatsBar";
 import MapCard from "./components/MapCard";
 import SinteseSection from "./components/SinteseSection";
 import AnaliseArea from "./components/AnaliseArea";
-import DownloadData from "./components/DownloadData";
 import MethodologyNotes from "./components/MethodologyNotes";
 import Footer from "./components/Footer";
 
@@ -77,7 +76,6 @@ export default function App() {
             ))}
           </div>
         </section>
-        <DownloadData gpkgArquivo={report.gpkg_arquivo} gpkgTamanhoMb={report.gpkg_tamanho_mb} />
       </div>
       <Footer />
     </>

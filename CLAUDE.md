@@ -214,11 +214,11 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
 - `ImageZoom.tsx`: miniatura clicável → modal com a imagem ampliada e um
   link de download do PNG original. Usado em `MapCard.tsx` e
   `SinteseSection.tsx`.
-- `DownloadData.tsx`: expõe o GeoPackage final para download direto pelo
-  site. `build_web_assets.py` copia o `.gpkg` (não move) para dentro de
-  `REPORT_DIR`/`public/data/` e grava `gpkg_arquivo`/`gpkg_tamanho_mb` no
-  `report.json` — o entregável principal continua sendo o `.gpkg` do
-  `DATA_DIR`; o site só espelha uma cópia para quem só tem o link do site.
+- **Sem link de download do GeoPackage no site** (removido em 2026-07-22,
+  componente `DownloadData.tsx` deletado): o `.gpkg` passou de 25 MiB —
+  limite por arquivo do Cloudflare Pages — com a adição das camadas de
+  localização país/UF/município. O entregável principal continua sendo o
+  `.gpkg` do `DATA_DIR`, compartilhado pelo Google Drive do projeto.
 - Tokens de cor do Tailwind (`tailwind.config.js`) são importados direto de
   `@wri-brasil/design-system` (`colors`), não redigitados — evita a
   divergência silenciosa que existe no dashboard do `climate-injustice-index`
