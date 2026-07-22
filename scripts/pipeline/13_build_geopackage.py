@@ -9,8 +9,9 @@ O que faz   : Consolida tudo no GeoPackage final do projeto. Junta os
               único .gpkg pronto para o QGIS.
 Camadas     : h3_indicadores (hexágonos com todos os indicadores, sem score)
               + viario, edificacoes, setores_censitarios, pontos_onibus,
-                ciclovia, parques_osm, app_corregos, as camadas municipais e
-                locais que existirem
+                ciclovia, parques_osm, app_corregos, pais/uf/municipios_uf
+                (mapa de localização, ver 02_download_ibge.py), as camadas
+                municipais e locais que existirem
               + _metadados
 Saída       : {DATA_DIR}/{PROJECT_NAME}.gpkg
 Requer      : 07 (h3_base) e, idealmente, 08/10/11/03/04/05/09.
@@ -74,6 +75,11 @@ VETORES = [
     (DATA_DIR / "ibge.gpkg", "setores_censitarios"),
     (EDIF_GPKG_PATH, "edificacoes"),
     (DATA_DIR / "app_corregos.gpkg", "app_corregos"),  # opcional (05)
+    # mapa de localização (país/UF/município) — ver nota no 02_download_ibge.py:
+    # únicas camadas do pipeline que NÃO são recortadas pelo BBOX do projeto.
+    (DATA_DIR / "localizacao.gpkg", "pais"),
+    (DATA_DIR / "localizacao.gpkg", "uf"),
+    (DATA_DIR / "localizacao.gpkg", "municipios_uf"),
 ]
 
 

@@ -20,9 +20,14 @@ muda por projeto. O `dashboard/` segue a mesma lógica — o código React é
 genérico, só os dados que ele consome (gerados por projeto) mudam.
 
 Ver `README.md` para a visão geral e o passo a passo de replicação. O
-contexto e o escopo específicos de cada projeto (incluindo `PLANO.md` e a
-lista de tarefas) ficam em `projetos/<cidade>/ref/`, **fora do git** — leia
-essa pasta ao trabalhar num projeto, mas nada dali entra em commit.
+contexto e o escopo específicos de cada projeto ficam em
+`projetos/<cidade>/ref/`, **fora do git** — leia essa pasta ao trabalhar num
+projeto, mas nada dali entra em commit. Convenção de 3 arquivos (ver
+`projetos/campinas/ref/` como exemplo): `REGISTRO.md` (o que já foi feito e
+decisões tomadas — estado atual), `TAREFAS.md` (só o que ainda está
+pendente) e `PLANO.md` (plano de trabalho original, anterior à
+implementação — geralmente fica desatualizado e é movido para `archive/`
+com uma nota de "descontinuado" assim que o `REGISTRO.md` assume esse papel).
 
 ## Regra crítica: `raw_dir` vs `data_dir`
 
@@ -69,7 +74,7 @@ Toda camada municipal (desta cidade ou de uma futura) se encaixa numa destas:
 
 1. **Sempre global/nacional** (nunca há substituto): edificações
    (`03_overture_edificacoes.py`), viário/topologia (`01_download_osm.py`),
-   censo (`02`/`04`). Um dado municipal equivalente (ex.: classificação
+   censo (`02`/`06`). Um dado municipal equivalente (ex.: classificação
    viária por decreto) só entra como **enriquecimento de atributo** sobre a
    camada global — nunca a substitui — porque a topologia de rede do OSM
    (grafo conectado, nós roteáveis) tem garantias que um shapefile municipal
@@ -96,12 +101,13 @@ pipeline seguir idêntico ao comportamento sem dado municipal (opt-in, nunca
 obrigatório). Cada entrada: `{"arquivo": stem do shapefile em
 raw_dir/prefeituras_municipais/<slug>/t0/, "indicador_score": None ou a
 chave de H3_PESOS que essa camada alimenta}`. Ver
-`projetos/campinas/config.py` para o exemplo populado (49 camadas).
+`projetos/campinas/config.py` para o exemplo populado (dezenas de camadas —
+contagem exata varia, ver o dict no arquivo).
 
 Scripts que leem esse registro: `04_dados_municipais.py` (ingestão bruta,
 recorte por bbox → `municipais.gpkg`) e `09_indicadores_municipais.py`
 (zonal stats de % de cobertura por hexágono para as entradas com
-`indicador_score` → `h3_municipal.parquet`, consumido pelo `11`).
+`indicador_score` → `h3_municipal.parquet`, consumido pelo `14`).
 
 ### Procedimento para catalogar/baixar o portal de uma NOVA cidade
 
@@ -109,7 +115,8 @@ Quando a usuária pedir para investigar o portal de dados geoespaciais de uma
 prefeitura (ex.: "faz o mesmo para a prefeitura de X"), repita o processo
 usado para Campinas nesta ordem:
 
-1. Ler `projetos/<cidade>/ref/PLANO.md`/`TAREFAS.md` para ver o que já se
+1. Ler `projetos/<cidade>/ref/REGISTRO.md`/`TAREFAS.md` (ou `PLANO.md`, se o
+   projeto ainda não tiver migrado pra esse padrão) para ver o que já se
    sabe sobre o portal daquele município (se houver).
 2. Encontrar o portal de metadados/dados geoespaciais (URL dada pela usuária
    ou pesquisada). Se for uma SPA client-side (Angular/React), WebFetch/curl
@@ -266,14 +273,14 @@ pip install -r requirements.txt
 - **A malha de setores tem 1,4 GB.** Filtrar por bbox usa o índice espacial
   (~10s); filtrar por atributo (`where=`) varre a tabela inteira (minutos no
   Drive). Ver `02_download_ibge.py`.
-- **CNEFE por UF tem ~3,6 GB.** O `04` varre uma vez e salva um recorte do
+- **CNEFE por UF tem ~3,6 GB.** O `06` varre uma vez e salva um recorte do
   projeto (`processed/cnefe_recorte.parquet`) — os demais scripts leem o
   recorte, não a UF.
 - **`renda_responsavel.csv` tem célula com lixo** (vírgula solta) que faz o
   pandas devolver a coluna como texto; converter a vírgula decimal à mão (ver `02`).
 - Rasters do **Cool Cities** cobrem só a mancha urbana (baseline) e a
   `accelerator_area` ≈ bbox (cenários) — hexágonos de borda ficam nulos nesses
-  campos; o score do `11` renormaliza os pesos sobre o que existe.
+  campos; o score do `14` renormaliza os pesos sobre o que existe.
 
 ## Pegadinhas do `dashboard/` (npm / design system)
 
@@ -310,17 +317,23 @@ pip install -r requirements.txt
   é um job à parte.
 - **Pendências específicas do projeto** (geojsons à mão, dados da prefeitura,
   coordenada da âncora — `ANCORA_COORD` cai fora do bbox, marcado `TODO`, só o
-  `11` usa — tratado com segurança: `raio_ancora()` pula a camada quando a
+  `14` usa — tratado com segurança: `raio_ancora()` pula a camada quando a
   âncora está fora do bbox, e essa camada não aparece no site) ficam na lista
   de tarefas em `projetos/<cidade>/ref/` (fora do git).
-- Educação: o `04` já extrai ensino/saúde do CNEFE geocodificados — pode
+- Educação: o `06` já extrai ensino/saúde do CNEFE geocodificados — pode
   dispensar uma fonte INEP separada.
 - **Dados municipais (prefeitura) integrados** via `04_dados_municipais.py` e
   `09_indicadores_municipais.py`, com fallback para nacional/global
-  (framework de 3 categorias acima). Campinas tem 49 camadas catalogadas em
-  `CAMADAS_MUNICIPAIS` (raw_dir/prefeituras_municipais/campinas/). Ainda não
-  rodado ponta a ponta contra o GeoPackage de produção — próximo passo antes
-  de reexportar o `.gpkg`/dashboard oficial.
+  (framework de 3 categorias acima). Campinas tem dezenas de camadas
+  catalogadas em `CAMADAS_MUNICIPAIS` (raw_dir/prefeituras_municipais/campinas/),
+  já rodado ponta a ponta contra o GeoPackage de produção.
+- **Mapa de localização (país/UF/município)**: `02_download_ibge.py` também
+  gera `localizacao.gpkg` (camadas `pais`, `uf`, `municipios_uf`) a partir da
+  malha municipal do IBGE (`raw_dir/ibge/malha_municipal/`) — únicas camadas
+  do pipeline que **não** são recortadas pelo BBOX do projeto (ficam na
+  escala nacional/estadual inteira, de propósito, pro município do projeto
+  poder ser destacado por atributo num mapa multi-escala). `13` copia essas 3
+  camadas pro `.gpkg` final como qualquer outro vetor.
 - **Site migrado de `scripts/report/` (Jinja2/matplotlib, aposentado) para
   `dashboard/`** (React/Vite/TS/Tailwind, mesmo padrão do
   `climate-injustice-index`). Publicado em

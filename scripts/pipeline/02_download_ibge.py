@@ -3,17 +3,29 @@
 -------------------
 O que faz   : Monta a camada de setores censitários da área de estudo, com
               os indicadores do Censo 2022 usados nos mapas 7, 8, 9 e 15 e
-              no score de prioridade do 14_analises.py.
-Camadas     : setores_censitarios
-Fonte       : Catálogo raw_dir/ibge/censo/2022/ (nada é baixado — os dados
-              já estão no catálogo geral):
-              - setores_censitarios/br_setores.gpkg      (malha, EPSG:5880)
-              - entorno_domicilios/agregados_por_setor/entorno_domicilios.csv
-              - agregados_por_setores/t1/renda_responsavel.csv
-Saída       : {DATA_DIR}/ibge.gpkg — camada única, reprojetada para
-              CRS_PROJETO.
+              no score de prioridade do 14_analises.py. Também monta as
+              camadas de CONTEXTO para o mapa de localização (país > UF >
+              município), a partir da malha municipal do IBGE.
+Camadas     : setores_censitarios (ibge.gpkg)
+              pais, uf, municipios_uf (localizacao.gpkg)
+Fonte       : Catálogo raw_dir/ibge/ (nada é baixado — os dados já estão no
+              catálogo geral):
+              - censo/2022/setores_censitarios/br_setores.gpkg (malha, EPSG:5880)
+              - censo/2022/entorno_domicilios/agregados_por_setor/entorno_domicilios.csv
+              - censo/2022/agregados_por_setores/t1/renda_responsavel.csv
+              - malha_municipal/2024/{pais,uf,municipios}.gpkg (EPSG:5880)
+Saída       : {DATA_DIR}/ibge.gpkg (setores_censitarios) e
+              {DATA_DIR}/localizacao.gpkg (pais, uf, municipios_uf),
+              reprojetados para CRS_PROJETO.
 Para adaptar: ajuste BBOX e IBGE_COD_MUN no config.py. Nada aqui é
               específico de Campinas — a malha e os CSVs são nacionais.
+
+Nota sobre `localizacao.gpkg`: DIFERENTE de todo o resto do pipeline, essas
+3 camadas NÃO são recortadas pelo BBOX do projeto — são pro mapa de
+localização multi-escala (Brasil > UF > município, ver mapa 1 do
+diagnóstico), então precisam ficar na escala nacional/estadual inteira, com
+o município do projeto identificável por atributo (`cd_mun`/`cd_uf`) para
+estilizar em destaque no QGIS, não recortado.
 
 Notas sobre os dados
 --------------------
@@ -56,11 +68,15 @@ from config import (  # noqa: E402
 )
 
 IBGE_GPKG_PATH = DATA_DIR / "ibge.gpkg"
+LOCALIZACAO_GPKG_PATH = DATA_DIR / "localizacao.gpkg"
 
 CENSO_DIR = RAW_CATALOG / "ibge" / "censo" / "2022"
 MALHA_PATH = CENSO_DIR / "setores_censitarios" / "br_setores.gpkg"
 ENTORNO_PATH = CENSO_DIR / "entorno_domicilios" / "agregados_por_setor" / "entorno_domicilios.csv"
 RENDA_PATH = CENSO_DIR / "agregados_por_setores" / "t1" / "renda_responsavel.csv"
+
+MALHA_MUNICIPAL_DIR = RAW_CATALOG / "ibge" / "malha_municipal" / "2024"
+COD_UF = IBGE_COD_MUN[:2]
 
 # Variáveis do bloco "entorno dos domicílios" (contagem de domicílios).
 # Ver _dicionario_entorno_domicilios.xlsx no catálogo.
@@ -131,6 +147,33 @@ def normalizar_invertido(serie):
     return (maximo - serie) / (maximo - minimo)
 
 
+def gerar_localizacao():
+    """Camadas de contexto (país/UF/município) pro mapa de localização — sem
+    recorte por BBOX, ao contrário do resto do pipeline (ver nota no
+    cabeçalho do arquivo)."""
+    print("Lendo malha municipal do IBGE (país/UF/municípios)...")
+
+    pais = gpd.read_file(MALHA_MUNICIPAL_DIR / "pais.gpkg", layer="temp_pais")
+    uf = gpd.read_file(MALHA_MUNICIPAL_DIR / "uf.gpkg", layer="temp_uf")
+    municipios = gpd.read_file(MALHA_MUNICIPAL_DIR / "municipios.gpkg", layer="temp_municipios")
+    municipios_uf = municipios[municipios["cd_uf"] == COD_UF]
+
+    pais = pais.to_crs(CRS_PROJETO)
+    uf = uf.to_crs(CRS_PROJETO)
+    municipios_uf = municipios_uf.to_crs(CRS_PROJETO)
+
+    pais.to_file(LOCALIZACAO_GPKG_PATH, layer="pais", driver="GPKG")
+    uf.to_file(LOCALIZACAO_GPKG_PATH, layer="uf", driver="GPKG")
+    municipios_uf.to_file(LOCALIZACAO_GPKG_PATH, layer="municipios_uf", driver="GPKG")
+
+    print(
+        f"  [localizacao] pais (1), uf (27), municipios_uf ({len(municipios_uf)} da UF "
+        f"{COD_UF}) → {LOCALIZACAO_GPKG_PATH.name}. Destaque o município do projeto "
+        f"no QGIS filtrando cd_mun == '{IBGE_COD_MUN}' em municipios_uf, e a UF "
+        f"filtrando cd_uf == '{COD_UF}' em uf."
+    )
+
+
 def main():
     setores = carregar_malha()
 
@@ -172,6 +215,8 @@ def main():
     resumo = setores[["pct_sem_arb", "pct_sem_ilum", "renda_media"]].describe()
     print("\nResumo dos indicadores na área de estudo:")
     print(resumo.round(1).to_string())
+
+    gerar_localizacao()
 
 
 if __name__ == "__main__":

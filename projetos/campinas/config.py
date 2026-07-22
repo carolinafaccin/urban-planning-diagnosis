@@ -163,6 +163,17 @@ CAMADAS_MUNICIPAIS = {
     "area_inundavel_tr25_2050_capivari": dict(arquivo="area_inundavel_tr25_2050_bacia_capivari", indicador_score=None),
     "area_inundavel_tr100_2020_capivari": dict(arquivo="area_inundavel_tr100_2020_bacia_capivari", indicador_score=None),
     "area_inundavel_tr100_2050_capivari": dict(arquivo="area_inundavel_tr100_2050_bacia_capivari", indicador_score=None),
+    # zoneamento legal/institucional (2026-07-22) — mapa de aspectos
+    # urbanísticos/institucionais; nenhuma tem ZEIS como classe (conferido nos
+    # atributos após o download) — ZEIS provavelmente está no LPOUS2018
+    # Zoneamento, ainda não baixado (precisa de navegador real, ver
+    # catalogo_pmc_metadados.md)
+    "mzdo2018_zoneamento":          dict(arquivo="mzdo2018_zoneamento", indicador_score=None),
+    "mzdo2018_sobrezoneamento":     dict(arquivo="mzdo2018_sobrezoneamento", indicador_score=None),
+    "mzdo2018_diretrizes_viarias":  dict(arquivo="mzdo2018_diretrizes_viarias", indicador_score=None),
+    "svds_zoneamento_urbano":       dict(arquivo="svds_zoneamento_urbano", indicador_score=None),
+    "svds_zoneamento_ambiental":    dict(arquivo="svds_zoneamento_ambiental", indicador_score=None),
+    "lpous2018_zoneamento":         dict(arquivo="lpous2018_zoneamento", indicador_score=None),
     # mobilidade/planejamento (Plano Diretor 2018) e conectividade/habitação
     "mzdo2018_perimetro_urbano":    dict(arquivo="mzdo2018_perimetro_urbano", indicador_score=None),
     "pd2018_mobilidade_rede_estrutural": dict(arquivo="pd2018_mobilidade_rede_estrutural", indicador_score=None),

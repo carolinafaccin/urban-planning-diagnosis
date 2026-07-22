@@ -132,7 +132,7 @@ raster/pontos por hexágono (09 opcional, indicadores municipais), e o
 | Script (`scripts/pipeline/`) | O que faz | Saída |
 | --- | --- | --- |
 | `01_download_osm.py` | Viário, ciclovias, parques, pontos de ônibus (OSM) | `osm.gpkg` |
-| `02_download_ibge.py` | Setores + Censo 2022 (arborização, iluminação, calçada, renda) | `ibge.gpkg` |
+| `02_download_ibge.py` | Setores + Censo 2022 (arborização, iluminação, calçada, renda) + país/UF/município para o mapa de localização (sem recorte de bbox) | `ibge.gpkg`, `localizacao.gpkg` |
 | `03_overture_edificacoes.py` | Edificações do Overture por bbox, filtradas por confiança | `edificacoes.gpkg` |
 | `04_dados_municipais.py` | Ingere o catálogo de dados municipais (prefeitura), opt-in | `municipais.gpkg` |
 | `05_app_corregos.py` | APP de córregos (Código Florestal) a partir da hidrografia | `app_corregos.gpkg` |
