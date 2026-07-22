@@ -2,7 +2,7 @@
 // gee_lst_ndvi_res10.js — LST e NDVI médios por hexágono H3 res10
 // ----------------------------------------------------------------------------
 // Fallback do 07_cool_cities.py para cidades sem Cool Cities Lab, e base do
-// catálogo nacional (raw_dir/gee/h3_res10/). Adaptado do e4 do
+// catálogo nacional (raw_dir/gee/br_h3_res10/). Adaptado do e4 do
 // climate-injustice-index (que fez o Brasil em res9).
 //
 // Método: o asset de centróides (um ponto por hexágono) é bufferizado pelo
@@ -18,12 +18,13 @@
 // - Piloto: rode gee_centroides_res10.py (malha só do projeto), suba UM
 //   asset, e aponte ASSET_POR_UF['<sua_uf>'] pra ele.
 // - Nacional: rode gee_centroides_res10_nacional.py (gera 1 CSV por UF em
-//   raw_dir/gee/h3_res10/centroides/), suba CADA CSV como um asset separado
-//   (mais tratável que um único asset gigante) e preencha ASSET_POR_UF
-//   abaixo com o caminho de cada um. TESTE 1 UF PRIMEIRO — res10 nacional
-//   tem ~7x mais células que res9 (~18M no Brasil); reduceRegions pode
-//   estourar timeout/memória em estados grandes antes de rodar as 27 de
-//   uma vez overnight.
+//   raw_dir/gee/br_h3_res10/_assets/br_h3_res10_centroides_por_uf/), suba
+//   CADA CSV como um asset separado (mais tratável que um único asset
+//   nacional gigante) e preencha ASSET_POR_UF abaixo com o caminho de cada
+//   um. Res10 nacional tem ~28,9M células (rodado em 2026-07-22) — UFs com
+//   mais de ~1,5M de células (MG, BA, SP, RS, PR, PA) estouram "Computed
+//   value is too large" no reduceRegions num lote só; por isso a
+//   AMOSTRAGEM POR UF abaixo já processa cada UF em lotes de CHUNK_SIZE.
 //
 // Como usar:
 //   1. Gere os centróides (ver acima) e suba os CSVs como assets no GEE.
@@ -59,6 +60,18 @@ ufs.forEach(function (uf) {
   ASSET_POR_UF[uf] = 'projects/' + GEE_PROJECT + '/assets/br_h3_res10_centroides_uf_' + uf;
 });
 
+// Contagem real de células por UF (gee_centroides_res10_nacional.py, rodado
+// em 2026-07-22) — usada em vez de `.size().getInfo()` dentro do loop, que é
+// uma chamada SÍNCRONA: pra UFs grandes (MG tem 4,68M células) ela pode
+// travar a aba inteira do Code Editor esperando o servidor responder.
+var TOTAL_POR_UF = {
+  11: 683529, 12: 302841, 13: 590800, 14: 162974, 15: 1873669, 16: 83097,
+  17: 617855, 21: 1204427, 22: 980833, 23: 1267994, 24: 396795, 25: 702590,
+  26: 1236109, 27: 378441, 28: 290192, 29: 3405997, 31: 4685163, 32: 684201,
+  33: 652393, 35: 2541644, 41: 2022412, 42: 1418865, 43: 2557240, 50: 611583,
+  51: 1079155, 52: 1449490, 53: 101682
+};
+
 // --- 2. LST (Landsat 8/9, banda térmica) e NDVI ---
 function maskL89(image) {
   var qa = image.select('QA_PIXEL');
@@ -87,29 +100,42 @@ var ndvi_medio = col.map(toNDVI).mean().multiply(100).rename('gee_ndvi_pct'); //
 
 var indicadores = lst_medio.addBands(ndvi_medio);
 
-// --- 3. AMOSTRAGEM POR UF ---
+// --- 3. AMOSTRAGEM POR UF (em lotes, ver CHUNK_SIZE acima) ---
+// UFs com mais de ~1,5M de células estouram "Computed value is too large" no
+// reduceRegions num único lote (MG, SP, PA, BA, PR, RS observados na prática)
+// — por isso todo UF é processado em lotes de CHUNK_SIZE via toList(count,
+// offset), não só os grandes. UFs pequenos ficam com 1 lote (comportamento
+// idêntico a antes).
+var CHUNK_SIZE = 700000;
+
 ufs.forEach(function (uf) {
   if (!ASSET_POR_UF[uf]) {
     print('[aviso] UF ' + uf + ' sem asset em ASSET_POR_UF — pulando.');
     return;
   }
-  var buffered = ee.FeatureCollection(ASSET_POR_UF[uf])
-    .map(function (f) { return f.buffer(H3_RES10_CIRCUMRADIUS_M); });
+  var pts = ee.FeatureCollection(ASSET_POR_UF[uf]);
+  var total = TOTAL_POR_UF[uf];
+  var nLotes = Math.max(1, Math.ceil(total / CHUNK_SIZE));
 
-  var amostra = indicadores.reduceRegions({
-    collection: buffered,
-    reducer: ee.Reducer.mean(),
-    scale: 30,
-    tileScale: 16
-  });
+  for (var i = 0; i < nLotes; i++) {
+    var lote = ee.FeatureCollection(pts.toList(CHUNK_SIZE, i * CHUNK_SIZE));
+    var buffered = lote.map(function (f) { return f.buffer(H3_RES10_CIRCUMRADIUS_M); });
 
-  Export.table.toDrive({
-    collection: amostra,
-    description: 'gee_br_h3_res10_lst_ndvi_uf_' + uf,
-    folder: 'gee_br_h3_res10_lst_ndvi',
-    fileFormat: 'CSV',
-    selectors: ['h3_id', 'cd_setor', 'cd_uf', 'qtd_dom', 'gee_lst', 'gee_ndvi_pct']
-  });
+    var amostra = indicadores.reduceRegions({
+      collection: buffered,
+      reducer: ee.Reducer.mean(),
+      scale: 30,
+      tileScale: 16
+    });
+
+    Export.table.toDrive({
+      collection: amostra,
+      description: 'gee_br_h3_res10_lst_ndvi_uf_' + uf + '_lote' + i,
+      folder: 'gee_br_h3_res10_lst_ndvi',
+      fileFormat: 'CSV',
+      selectors: ['h3_id', 'cd_setor', 'cd_uf', 'qtd_dom', 'gee_lst', 'gee_ndvi_pct']
+    });
+  }
 });
 
 print('Tarefas enviadas: LST (°C) e NDVI (%) médios por hexágono H3 res10.');

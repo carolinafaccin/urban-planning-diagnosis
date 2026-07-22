@@ -9,14 +9,18 @@ O que faz   : Amostra o raster global de suscetibilidade a deslizamentos
               NASA GPM) — processar localmente é mais simples e mais rápido
               que subir como asset e rodar reduceRegions no GEE.
               Espelha suscetibilidade-deslizamentos-lhasa-v1/ do catálogo
-              nacional res9 (raw_dir/gee/h3_res9/), em res10.
+              nacional res9 (raw_dir/gee/br_h3_res9/), em res10 — pasta
+              renomeada aqui pra `susc_deslizamento_lhasa/` (nome curto, no
+              mesmo padrão das outras pastas de produto em br_h3_res10/).
 Fonte       : raw_dir/nasa/global_landslide_susceptibility_map/
               global-landslide-susceptibility-map-2-27-23.tif
               (raster global ~1km, classes 0-5, ver README da pasta).
-Entrada     : raw_dir/gee/h3_res10/centroides/br_h3_res10_centroides_uf_*.csv
-              (gerado por gee_centroides_res10_nacional.py).
-Saída       : raw_dir/gee/h3_res10/suscetibilidade-deslizamentos-lhasa-v1/
-              h3_susc_desliz_lhasa_v1_uf_<NN>.csv
+Entrada     : raw_dir/gee/br_h3_res10/_assets/br_h3_res10_centroides_por_uf/
+              br_h3_res10_centroides_uf_*.csv (gerado por
+              gee_centroides_res10_nacional.py).
+Saída       : raw_dir/gee/br_h3_res10/susc_deslizamento_lhasa/
+              br_h3_res10_susc_deslizamento_lhasa_uf_<NN>.csv (sem prefixo
+              "gee_" — não passa pelo Earth Engine, ver acima)
               colunas: h3_id, cd_setor, cd_uf, qtd_dom, lhasa_class
 
 Nota sobre resolução: o raster tem ~1km — mais grosso que o hexágono res10
@@ -41,12 +45,12 @@ import rasterio
 sys.path.insert(0, str(Path.cwd()))
 from config import RAW_CATALOG  # noqa: E402
 
-CENTROIDES_DIR = RAW_CATALOG / "gee" / "h3_res10" / "centroides"
+CENTROIDES_DIR = RAW_CATALOG / "gee" / "br_h3_res10" / "_assets" / "br_h3_res10_centroides_por_uf"
 RASTER_PATH = (
     RAW_CATALOG / "nasa" / "global_landslide_susceptibility_map"
     / "global-landslide-susceptibility-map-2-27-23.tif"
 )
-OUT_DIR = RAW_CATALOG / "gee" / "h3_res10" / "suscetibilidade-deslizamentos-lhasa-v1"
+OUT_DIR = RAW_CATALOG / "gee" / "br_h3_res10" / "susc_deslizamento_lhasa"
 
 
 def main():
@@ -76,7 +80,7 @@ def main():
 
             out = df[["h3_id", "cd_setor", "cd_uf", "qtd_dom", "lhasa_class"]]
             out_path = OUT_DIR / csv_path.name.replace(
-                "br_h3_res10_centroides", "h3_susc_desliz_lhasa_v1"
+                "br_h3_res10_centroides", "br_h3_res10_susc_deslizamento_lhasa"
             )
             out.to_csv(out_path, index=False)
             n_validos = out["lhasa_class"].notna().sum()

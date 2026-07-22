@@ -4,10 +4,14 @@ gee_centroides_res10_nacional.py
 O que faz   : Gera o CSV de centróides dos hexágonos H3 res10 do BRASIL
               INTEIRO, para subir como asset no GEE e alimentar os scripts
               gee_*_res10.js quando a intenção é construir o catálogo
-              nacional (raw_dir/gee/h3_res10/), em vez de só a malha do
+              nacional (raw_dir/gee/br_h3_res10/), em vez de só a malha do
               projeto (para isso, use gee_centroides_res10.py).
-Saída       : {RAW_CATALOG}/gee/h3_res10/centroides/
-              br_h3_res10_centroides_uf_<NN>.csv (um por UF, 27 arquivos)
+Saída       : {RAW_CATALOG}/gee/br_h3_res10/_assets/br_h3_res10_centroides_por_uf/
+              br_h3_res10_centroides_uf_<NN>.csv (um por UF, 27 arquivos) —
+              "_assets" porque isso não é produto final do catálogo, é
+              insumo pra subir como asset no GEE (mesma lógica de
+              raw_dir/gee/br_h3_res9/ manter os CSVs de referência à parte
+              das pastas de produto).
               colunas: h3_id, cd_setor, cd_mun, cd_uf, qtd_dom, lat, lon
 Entrada     : {RAW_CATALOG}/h3/br_h3_res9.parquet (grade nacional res9,
               ~2,6 milhões de células — ver raw_dir/h3/README.md).
@@ -24,10 +28,13 @@ dividido), suficiente para os scripts gee_*_res10.js (que só usam essas
 colunas como metadado de acompanhamento, não para ponderar a amostragem).
 Não usar esse `qtd_dom` para nada que exija precisão populacional real.
 
-Escala: ~2,6 M células res9 × 7 filhas ≈ 18 M pontos no Brasil inteiro.
-Antes de rodar TODAS as UFs de uma vez pelo GEE overnight, teste 1 UF
-primeiro (ex.: a do seu projeto) em cada script gee_*_res10.js — estados
-grandes/populosos podem estourar timeout/memória do reduceRegions em res10.
+Escala real (rodado em 2026-07-22): ~28,9 M pontos no Brasil inteiro — mais
+que a estimativa ingênua de 7×2,6M (~18M), porque a subdivisão em filhas não
+é uniforme. UFs grandes (MG ~4,7M, BA ~3,4M, SP ~2,5M, RS ~2,6M, PR ~2,0M,
+PA ~1,9M) de fato estouram "Computed value is too large" no reduceRegions
+dos scripts gee_*_res10.js quando processadas num lote só — por isso esses
+scripts processam cada UF em lotes de CHUNK_SIZE (ver `AMOSTRAGEM POR UF`
+em cada um), não é mais preciso testar 1 UF manualmente antes de rodar as 27.
 
 Como rodar  : cd projetos/campinas   (qualquer projeto serve, só usa
               RAW_CATALOG, que é comum a todos)
@@ -44,7 +51,7 @@ sys.path.insert(0, str(Path.cwd()))
 from config import RAW_CATALOG  # noqa: E402
 
 BR_H3_RES9_PATH = RAW_CATALOG / "h3" / "br_h3_res9.parquet"
-OUT_DIR = RAW_CATALOG / "gee" / "h3_res10" / "centroides"
+OUT_DIR = RAW_CATALOG / "gee" / "br_h3_res10" / "_assets" / "br_h3_res10_centroides_por_uf"
 
 
 def main():

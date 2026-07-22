@@ -40,6 +40,18 @@ ufs.forEach(function (uf) {
   ASSET_POR_UF[uf] = 'projects/' + GEE_PROJECT + '/assets/br_h3_res10_centroides_uf_' + uf;
 });
 
+// Contagem real de células por UF (gee_centroides_res10_nacional.py, rodado
+// em 2026-07-22) — usada em vez de `.size().getInfo()` dentro do loop, que é
+// uma chamada SÍNCRONA: pra UFs grandes (MG tem 4,68M células) ela pode
+// travar a aba inteira do Code Editor esperando o servidor responder.
+var TOTAL_POR_UF = {
+  11: 683529, 12: 302841, 13: 590800, 14: 162974, 15: 1873669, 16: 83097,
+  17: 617855, 21: 1204427, 22: 980833, 23: 1267994, 24: 396795, 25: 702590,
+  26: 1236109, 27: 378441, 28: 290192, 29: 3405997, 31: 4685163, 32: 684201,
+  33: 652393, 35: 2541644, 41: 2022412, 42: 1418865, 43: 2557240, 50: 611583,
+  51: 1079155, 52: 1449490, 53: 101682
+};
+
 // --- 2. LST dia/noite (MODIS MOD11A2) ---
 function toKelvinCelsius(banda, novoNome) {
   return function (image) {
@@ -58,29 +70,41 @@ var indicadores_ampl = indicadores.addBands(
   lst_dia.subtract(lst_noite).rename('gee_amplitude_termica')
 );
 
-// --- 3. AMOSTRAGEM POR UF ---
+// --- 3. AMOSTRAGEM POR UF (em lotes, ver CHUNK_SIZE acima) ---
+// UFs com mais de ~1,5M de células estouram "Computed value is too large" no
+// reduceRegions num único lote (MG, SP, PA, BA, PR, RS observados na prática)
+// — por isso todo UF é processado em lotes de CHUNK_SIZE via toList(count,
+// offset), não só os grandes.
+var CHUNK_SIZE = 700000;
+
 ufs.forEach(function (uf) {
   if (!ASSET_POR_UF[uf]) {
     print('[aviso] UF ' + uf + ' sem asset em ASSET_POR_UF — pulando.');
     return;
   }
-  var buffered = ee.FeatureCollection(ASSET_POR_UF[uf])
-    .map(function (f) { return f.buffer(H3_RES10_CIRCUMRADIUS_M); });
+  var pts = ee.FeatureCollection(ASSET_POR_UF[uf]);
+  var total = TOTAL_POR_UF[uf];
+  var nLotes = Math.max(1, Math.ceil(total / CHUNK_SIZE));
 
-  var amostra = indicadores_ampl.reduceRegions({
-    collection: buffered,
-    reducer: ee.Reducer.mean(),
-    scale: 1000,
-    tileScale: 16
-  });
+  for (var i = 0; i < nLotes; i++) {
+    var lote = ee.FeatureCollection(pts.toList(CHUNK_SIZE, i * CHUNK_SIZE));
+    var buffered = lote.map(function (f) { return f.buffer(H3_RES10_CIRCUMRADIUS_M); });
 
-  Export.table.toDrive({
-    collection: amostra,
-    description: 'gee_br_h3_res10_lst_noturna_uf_' + uf,
-    folder: 'gee_br_h3_res10_lst_noturna',
-    fileFormat: 'CSV',
-    selectors: ['h3_id', 'cd_setor', 'cd_uf', 'qtd_dom', 'gee_lst_dia', 'gee_lst_noite', 'gee_amplitude_termica']
-  });
+    var amostra = indicadores_ampl.reduceRegions({
+      collection: buffered,
+      reducer: ee.Reducer.mean(),
+      scale: 1000,
+      tileScale: 16
+    });
+
+    Export.table.toDrive({
+      collection: amostra,
+      description: 'gee_br_h3_res10_lst_noturna_uf_' + uf + '_lote' + i,
+      folder: 'gee_br_h3_res10_lst_noturna',
+      fileFormat: 'CSV',
+      selectors: ['h3_id', 'cd_setor', 'cd_uf', 'qtd_dom', 'gee_lst_dia', 'gee_lst_noite', 'gee_amplitude_termica']
+    });
+  }
 });
 
 print('Tarefas enviadas: LST dia/noite (°C, MODIS) e amplitude térmica por hexágono H3 res10.');
