@@ -25,6 +25,12 @@ MUNICIPIO    = "Campinas"
 UF           = "SP"
 IBGE_COD_MUN = "3509502"
 
+# Título de exibição do diagnóstico no site (Hero, TopBar, <title> da aba) —
+# separado de MUNICIPIO porque a área de estudo é um recorte (loteamento
+# Jardim Bassoli), não o município inteiro. MUNICIPIO continua sendo usado
+# à parte para o mapa de localização ("Localização em {MUNICIPIO}").
+TITULO_PROJETO = "Diagnóstico urbanístico do Jardim Bassoli, em Campinas"
+
 # Cloudflare Pages: um único project "guarda-chuva" (produto) com um branch
 # por projeto/bbox. Branch deploys viram <PAGES_BRANCH>.<PAGES_PROJECT>.pages.dev
 # — não precisa criar um Pages project novo a cada cidade/bairro.

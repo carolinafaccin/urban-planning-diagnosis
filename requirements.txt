@@ -28,3 +28,9 @@ rasterstats==0.21.0
 # dashboard/data_prep/build_web_assets.py (mapas PNG do site)
 matplotlib==3.11.0
 mapclassify==2.10.0
+
+# scripts/inep/baixar_catalogo_escolas_nacional.py — geobr declara
+# geopandas<=1.1.2/shapely<=2.1.0 como dependência (conflito só de aviso do
+# pip, não trava a instalação); testado funcionando com as versões pinadas
+# acima (geopandas 1.1.4 / shapely 2.1.2).
+geobr==1.0.0

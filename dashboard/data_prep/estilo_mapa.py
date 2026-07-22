@@ -2,44 +2,59 @@
 estilo_mapa.py
 --------------
 O que faz   : Módulo de estilo compartilhado para os mapas PNG gerados por
-              build_web_assets.py — título/legenda/notas em Inter com
-              hierarquia de cinzas, norte e escala gráfica desenhados por
-              código (sem depender de símbolos default do matplotlib) e um
-              mapa de localização (inset) mostrando onde a área de estudo
-              fica dentro do município/UF.
+              build_web_assets.py — layout de duas colunas (sidebar de texto
+              à esquerda: título logo acima da legenda, descrição, norte+
+              escala, mapa de localização e fonte dos dados — mapa "limpo" à
+              direita, sem NADA sobreposto além do próprio choropleth),
+              tipografia Inter com hierarquia de cinzas. Inspirado em
+              referências de cartografia editorial (mapas estáticos, não
+              interativos) — título grudado na legenda (não no topo do
+              mapa), símbolo de norte minimalista (círculo + haste) e escala
+              gráfica em linha fina, todos empilhados na mesma coluna
+              lateral em vez de flutuando por cima do mapa.
 Uso         : aplicar_estilo() uma vez no início do script; depois
-              criar_figura_mapa(...) no lugar de plt.subplots() direto.
+              criar_figura_mapa() no lugar de plt.subplots() direto —
+              devolve (fig, ax_mapa, ax_sidebar). Os blocos da sidebar
+              (título, legenda, norte/escala, inset, fonte) são empilhados
+              de cima pra baixo — cada função devolve o "y" onde parou, que
+              vira o y_topo do próximo bloco (ver build_web_assets.py).
 Fonte       : Inter (SIL Open Font License) embutida em dashboard/data_prep/
               fonts/ — carregada via matplotlib.font_manager.addfont() para
               não depender de fontes instaladas na máquina (reprodutível em
               qualquer SO, diferente de usar "Avenir"/"Helvetica Neue" que só
               existem no macOS).
-Adaptar     : cores/paleta de cinza em CORES abaixo; a lógica de escala
-              gráfica (nice_round) e do inset de localização são genéricas —
-              não precisam de config por projeto além do que já é passado
-              como argumento.
+Adaptar     : cores/paleta de cinza em CORES; LARGURA_SIDEBAR controla a
+              proporção sidebar/mapa. legenda_continua_sidebar/
+              legenda_categorica_sidebar desenham a legenda manualmente (em
+              vez do ax.legend do geopandas) pra poder ficar na sidebar.
 """
 
+import math
+import textwrap
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
+import mapclassify
 
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 
 CORES = dict(
     titulo="#2b2b2b",
     texto="#8c8c8c",
-    linha_norte="#2b2b2b",
-    contorno_bbox="#333333",
-    fundo_inset="#f4f4f4",
+    linha="#595959",
+    fundo_inset="#e6e6e6",
     destaque_inset="#e31a1c",
 )
+
+LARGURA_SIDEBAR = 0.30
+MARGEM_X = 0.09  # recuo esquerdo comum a todos os blocos da sidebar
 
 
 def aplicar_estilo():
     """Registra a fonte Inter (bundled) e define os rcParams globais.
-    Chamar uma vez, antes de qualquer plt.subplots()."""
+    Chamar uma vez, antes de qualquer plt.subplots()/figure()."""
     for arquivo in FONTS_DIR.glob("*.ttf"):
         fm.fontManager.addfont(str(arquivo))
     plt.rcParams.update({
@@ -51,112 +66,161 @@ def aplicar_estilo():
     })
 
 
+def criar_figura_mapa(figsize=(10, 7.2)):
+    """Layout de duas colunas: sidebar de texto (0 a LARGURA_SIDEBAR da
+    figura) e área do mapa (resto), cada uma seu próprio eixo. A sidebar usa
+    coordenadas de dados 0–1 (equivalentes a fração do eixo, já que xlim/
+    ylim = (0,1) e o eixo ocupa a figura inteira em altura) — isso permite
+    converter uma posição da sidebar em fração de figura sem contas: a
+    fração em x é y_dado * LARGURA_SIDEBAR, a fração em y é o próprio
+    y_dado (usado por inset_localizacao_sidebar)."""
+    fig = plt.figure(figsize=figsize)
+    ax_side = fig.add_axes((0.0, 0.0, LARGURA_SIDEBAR, 1.0))
+    ax_side.set_axis_off()
+    ax_side.set_xlim(0, 1)
+    ax_side.set_ylim(0, 1)
+    ax_mapa = fig.add_axes((LARGURA_SIDEBAR + 0.015, 0.03, 1 - LARGURA_SIDEBAR - 0.045, 0.94))
+    ax_mapa.set_axis_off()
+    return fig, ax_mapa, ax_side
+
+
+def descricao_sidebar(ax_side, texto, y, largura=36):
+    ax_side.text(MARGEM_X, y, "\n".join(textwrap.wrap(texto, width=largura)), fontsize=8.5,
+                 color=CORES["texto"], ha="left", va="top", linespacing=1.5)
+    n_linhas = texto and len(textwrap.wrap(texto, width=largura)) or 0
+    return y - n_linhas * 0.028 - 0.03
+
+
+def fonte_dados_sidebar(ax_side, texto, y, largura=36):
+    ax_side.text(MARGEM_X, y, "\n".join(textwrap.wrap(texto, width=largura)), fontsize=7,
+                 color=CORES["texto"], ha="left", va="top", linespacing=1.4)
+
+
 def _nice_round(valor):
-    """Arredonda `valor` para 1/2/5 × 10^n mais próximo abaixo — usado pela
-    escala gráfica (mesma lógica de bibliotecas de cartografia: a barra deve
-    representar um número redondo de metros/km, não um valor arbitrário)."""
-    import math
+    """Arredonda para 1/2/5 × 10^n mais próximo abaixo — a escala gráfica
+    deve representar um número redondo de metros/km, não um valor
+    arbitrário."""
     if valor <= 0:
         return 1
     exp = math.floor(math.log10(valor))
     base = valor / (10 ** exp)
-    if base >= 5:
-        nice = 5
-    elif base >= 2:
-        nice = 2
-    else:
-        nice = 1
+    nice = 5 if base >= 5 else (2 if base >= 2 else 1)
     return nice * (10 ** exp)
 
 
-def desenhar_escala(ax, cor=None):
-    """Escala gráfica desenhada nos dados (CRS em metros, ex. EPSG:31983) —
-    calcula um valor redondo (~20% da largura do mapa) e desenha uma barra
-    com dois segmentos (preto/branco alternados) mais o rótulo em km ou m."""
-    cor = cor or CORES["titulo"]
-    xmin, xmax = ax.get_xlim()
-    largura = xmax - xmin
-    alvo = largura * 0.2
-    distancia_m = _nice_round(alvo)
+def norte_escala_sidebar(ax_side, ax_mapa, y_topo):
+    """Norte (círculo + haste, sem seta) e escala gráfica (linha fina) lado
+    a lado, no mesmo eixo de base — estilo minimalista (não a seta digital
+    de antes). A distância real vem da extensão do mapa (ax_mapa, CRS em
+    metros); o desenho em si fica todo na sidebar. Tudo é posicionado
+    relativo a `y_topo` e só desce a partir dali (nada é desenhado acima),
+    pra nunca sobrepor o último item da legenda."""
+    cor = CORES["linha"]
+
+    # Norte: "N" + círculo vazado + haste, empilhados de cima pra baixo
+    xn = MARGEM_X + 0.02
+    y_label = y_topo - 0.012
+    y_circulo = y_label - 0.026
+    y_circulo_base = y_circulo - 0.013
+    y_haste_fim = y_circulo_base - 0.045
+    ax_side.text(xn, y_label, "N", fontsize=8, color=cor, ha="center", va="top")
+    ax_side.add_patch(plt.Circle((xn, y_circulo), 0.013, facecolor="white", edgecolor=cor, linewidth=1.0))
+    ax_side.plot([xn, xn], [y_haste_fim, y_circulo_base], color=cor, linewidth=1.0, solid_capstyle="round")
+
+    # Escala: linha fina alinhada com o círculo, marcas de topo nas duas
+    # pontas, rótulo embaixo
+    xmin, xmax = ax_mapa.get_xlim()
+    distancia_m = _nice_round((xmax - xmin) * 0.22)
     rotulo = f"{distancia_m / 1000:g} km" if distancia_m >= 1000 else f"{distancia_m:g} m"
 
-    ymin, ymax = ax.get_ylim()
-    y0 = ymin + (ymax - ymin) * 0.035
-    x0 = xmin + largura * 0.05
-    altura = (ymax - ymin) * 0.006
+    x0, x1 = MARGEM_X + 0.14, MARGEM_X + 0.50
+    y_linha = y_circulo
+    ax_side.plot([x0, x1], [y_linha, y_linha], color=cor, linewidth=1.0)
+    ax_side.plot([x0, x0], [y_linha, y_linha + 0.014], color=cor, linewidth=1.0)
+    ax_side.plot([x1, x1], [y_linha, y_linha + 0.014], color=cor, linewidth=1.0)
+    ax_side.text((x0 + x1) / 2, y_linha - 0.018, rotulo, fontsize=7.5, color=cor, ha="center", va="top")
 
-    # dois segmentos preto/branco (padrão de escala gráfica cartográfica)
-    metade = distancia_m / 2
-    ax.add_patch(plt.Rectangle((x0, y0), metade, altura, facecolor=cor, edgecolor="none", zorder=5))
-    ax.add_patch(plt.Rectangle((x0 + metade, y0), metade, altura, facecolor="white",
-                                edgecolor=cor, linewidth=0.6, zorder=5))
-    ax.plot([x0, x0 + distancia_m], [y0, y0], color=cor, linewidth=0.6, zorder=5)
-    ax.text(x0, y0 + altura * 2.2, "0", fontsize=6, color=cor, ha="center", va="bottom", zorder=5)
-    ax.text(x0 + distancia_m, y0 + altura * 2.2, rotulo, fontsize=6, color=cor,
-            ha="center", va="bottom", zorder=5)
+    return y_haste_fim - 0.04
 
 
-def desenhar_norte(ax, cor=None):
-    """Seta de norte simples (triângulo + N) no canto superior direito,
-    em coordenadas de eixo (transAxes) — não se move com o zoom/extensão
-    do mapa."""
-    cor = cor or CORES["titulo"]
-    x, y = 0.94, 0.90
-    ax.annotate(
-        "", xy=(x, y), xytext=(x, y - 0.07),
-        xycoords="axes fraction",
-        arrowprops=dict(arrowstyle="-|>", color=cor, linewidth=1.4, mutation_scale=14),
-        zorder=6,
-    )
-    ax.text(x, y + 0.015, "N", transform=ax.transAxes, fontsize=9, fontweight="600",
-            color=cor, ha="center", va="bottom", zorder=6)
+def legenda_continua_sidebar(ax_side, serie, cmap_nome, y_topo, titulo=None, k=5, fmt="{:.1f}",
+                              cor_sem_dado="#eeeeee"):
+    """Legenda vertical de swatches (retângulo + rótulo) computada com a
+    mesma classificação de quantis usada no mapa (mapclassify.Quantiles),
+    para os intervalos baterem com as cores desenhadas nos hexágonos."""
+    valores = serie.dropna()
+    k_efetivo = min(k, valores.nunique()) or 1
+    bins = list(mapclassify.Quantiles(valores, k=k_efetivo).bins)
+    cmap = mpl.colormaps[cmap_nome].resampled(len(bins))
+
+    y = y_topo
+    if titulo:
+        ax_side.text(MARGEM_X, y, titulo, fontsize=9.5, fontweight="600", color=CORES["titulo"],
+                     ha="left", va="top")
+        y -= 0.038
+    lower = valores.min()
+    for i, upper in enumerate(bins):
+        ax_side.add_patch(plt.Rectangle((MARGEM_X, y - 0.022), 0.05, 0.022, facecolor=cmap(i),
+                                          edgecolor="none"))
+        ax_side.text(MARGEM_X + 0.08, y - 0.011, f"{fmt.format(lower)} – {fmt.format(upper)}", fontsize=8,
+                     color=CORES["linha"], ha="left", va="center")
+        lower = upper
+        y -= 0.032
+    if serie.isna().any():
+        ax_side.add_patch(plt.Rectangle((MARGEM_X, y - 0.022), 0.05, 0.022, facecolor=cor_sem_dado,
+                                          edgecolor="none"))
+        ax_side.text(MARGEM_X + 0.08, y - 0.011, "sem dado", fontsize=8, color=CORES["linha"],
+                     ha="left", va="center")
+        y -= 0.032
+    return y
 
 
-def desenhar_inset_localizacao(fig, gdf_uf, gdf_municipio_alvo, gdf_municipios_uf=None,
-                                bbox_geom=None, posicao=(0.03, 0.72, 0.24, 0.22)):
-    """Mapa de localização (inset): UF em cinza claro, município do projeto
-    destacado, e um marcador/retângulo indicando onde fica a área de estudo
-    dentro do município. `posicao` são frações da figura (left, bottom,
-    width, height) — canto superior esquerdo por padrão (o inferior direito
-    já é ocupado pela legenda, e o inferior esquerdo pela escala gráfica)."""
-    ax_inset = fig.add_axes(posicao)
+def legenda_categorica_sidebar(ax_side, cores, labels, y_topo, titulo=None):
+    y = y_topo
+    if titulo:
+        ax_side.text(MARGEM_X, y, titulo, fontsize=9.5, fontweight="600", color=CORES["titulo"],
+                     ha="left", va="top")
+        y -= 0.038
+    for cor, label in zip(cores, labels):
+        ax_side.add_patch(plt.Rectangle((MARGEM_X, y - 0.022), 0.05, 0.022, facecolor=cor, edgecolor="none"))
+        ax_side.text(MARGEM_X + 0.08, y - 0.011, label, fontsize=8, color=CORES["linha"],
+                     ha="left", va="center")
+        y -= 0.032
+    return y
+
+
+def titulo_acima_legenda(ax_side, titulo, y_topo, largura=26):
+    """Título grudado bem acima da legenda (não no topo do mapa) — mesmo
+    padrão do autor de referência: o bloco título+legenda funciona como uma
+    unidade visual só, a parte de cima da sidebar fica livre para a
+    descrição/inset."""
+    ax_side.text(MARGEM_X, y_topo, "\n".join(textwrap.wrap(titulo, width=largura)), fontsize=13,
+                 fontweight="700", color=CORES["titulo"], ha="left", va="top", linespacing=1.2)
+    n_linhas = len(textwrap.wrap(titulo, width=largura))
+    return y_topo - n_linhas * 0.045 - 0.025
+
+
+def inset_localizacao_sidebar(fig, ax_side, gdf_municipio, gdf_bbox, titulo, y_topo, altura=0.14):
+    """Mapa de localização (inset) DENTRO da sidebar (não sobreposto ao
+    mapa principal): limite municipal em cinza claro, com o bbox do projeto
+    destacado — responde "onde fica essa área de estudo dentro da cidade".
+    `titulo` (ex. "Localização em Campinas") vai como texto logo acima do
+    inset, na mesma coluna. `y_topo` é a coordenada de dados (0–1) da
+    sidebar; como a sidebar ocupa a figura inteira em altura e começa em
+    x=0, a conversão pra fração de figura é direta (ver criar_figura_mapa)."""
+    ax_side.text(MARGEM_X, y_topo, titulo, fontsize=8.5, fontweight="600",
+                 color=CORES["titulo"], ha="left", va="top")
+    y_topo -= 0.045
+
+    x0_fig = MARGEM_X * LARGURA_SIDEBAR
+    largura_fig = 0.75 * LARGURA_SIDEBAR
+    y0_fig = y_topo - altura
+    ax_inset = fig.add_axes((x0_fig, y0_fig, largura_fig, altura))
     ax_inset.set_axis_off()
-    gdf_uf.plot(ax=ax_inset, facecolor=CORES["fundo_inset"], edgecolor="white", linewidth=0.5, zorder=1)
-    if gdf_municipios_uf is not None:
-        gdf_municipios_uf.plot(ax=ax_inset, facecolor="none", edgecolor="white", linewidth=0.2, zorder=2)
-    gdf_municipio_alvo.plot(ax=ax_inset, facecolor=CORES["destaque_inset"], edgecolor="none",
-                             alpha=0.85, zorder=3)
-    if bbox_geom is not None:
-        cx, cy = bbox_geom.union_all().centroid.coords[0] if hasattr(bbox_geom, "union_all") \
-            else bbox_geom.unary_union.centroid.coords[0]
-        ax_inset.plot(cx, cy, marker="o", markersize=4, markerfacecolor="white",
-                      markeredgecolor=CORES["destaque_inset"], markeredgewidth=1.2, zorder=4)
+    gdf_municipio.plot(ax=ax_inset, facecolor=CORES["fundo_inset"], edgecolor="white",
+                        linewidth=0.6, zorder=1)
+    gdf_bbox.plot(ax=ax_inset, facecolor=CORES["destaque_inset"], edgecolor="none",
+                  alpha=0.9, zorder=2)
     for spine in ax_inset.spines.values():
         spine.set_visible(False)
-    return ax_inset
-
-
-def criar_figura_mapa(figsize=(7, 7)):
-    """Substitui plt.subplots() puro — já aplica a mesma figura/eixo base
-    usados por todos os mapas do projeto."""
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.set_axis_off()
-    return fig, ax
-
-
-def estilizar_titulo(ax, titulo, subtitulo=None):
-    ax.set_title(titulo, fontsize=14, fontweight="600", color=CORES["titulo"],
-                 loc="left", pad=10)
-    if subtitulo:
-        ax.text(0, 1.02, subtitulo, transform=ax.transAxes, fontsize=8.5,
-                 color=CORES["texto"], ha="left", va="bottom")
-
-
-def estilizar_fonte_dados(ax, texto, largura=95):
-    """Nota de fonte/descrição sob o mapa. Quebra de linha manual (textwrap)
-    em vez de wrap=True do matplotlib — este não respeita a largura real da
-    figura e corta o texto (visto ao renderizar sem isso)."""
-    import textwrap
-    texto_quebrado = "\n".join(textwrap.wrap(texto, width=largura))
-    ax.text(0, -0.035, texto_quebrado, transform=ax.transAxes, fontsize=7,
-             color=CORES["texto"], ha="left", va="top", linespacing=1.4)
+    return y0_fig - 0.03

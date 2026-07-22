@@ -1,11 +1,11 @@
 interface TopBarProps {
-  cidade: string;
+  titulo: string;
 }
 
 // Mesma identidade visual do dashboard do climate-injustice-index (logo +
 // borda inferior). Sem navegação — este site é de um projeto só, não um
 // explorador multi-página.
-export default function TopBar({ cidade }: TopBarProps) {
+export default function TopBar({ titulo }: TopBarProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-wri-line bg-white px-3 sm:px-5 print:hidden">
       <a
@@ -20,7 +20,7 @@ export default function TopBar({ cidade }: TopBarProps) {
           className="h-7 w-auto sm:h-8"
         />
         <span className="hidden truncate border-l border-wri-line pl-3 text-sm font-semibold tracking-tight text-wri-ink md:inline">
-          Diagnóstico territorial urbanístico — {cidade}
+          {titulo}
         </span>
       </a>
       <button

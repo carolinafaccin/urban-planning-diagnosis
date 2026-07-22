@@ -22,9 +22,7 @@ export default function App() {
   useEffect(() => {
     if (report) {
       document.title =
-        route === "notas"
-          ? `Notas metodológicas — ${report.cidade}`
-          : `Diagnóstico territorial urbanístico — ${report.cidade}`;
+        route === "notas" ? `Notas metodológicas — ${report.titulo}` : report.titulo;
     }
   }, [report, route]);
 
@@ -40,7 +38,7 @@ export default function App() {
   if (route === "notas") {
     return (
       <>
-        <TopBar cidade={report.cidade} />
+        <TopBar titulo={report.titulo} />
         <div className={`mx-auto max-w-3xl px-4 ${FOOTER_SPACER}`}>
           <a
             href="#/"
@@ -60,9 +58,9 @@ export default function App() {
 
   return (
     <>
-      <TopBar cidade={report.cidade} />
+      <TopBar titulo={report.titulo} />
       <div className={`mx-auto max-w-5xl px-4 ${FOOTER_SPACER}`}>
-        <Hero cidade={report.cidade} data={report.data} />
+        <Hero titulo={report.titulo} data={report.data} />
         <StatsBar report={report} />
         <AnaliseArea analiseMd={report.analise_md} />
         {sintese && <SinteseSection card={sintese} />}
