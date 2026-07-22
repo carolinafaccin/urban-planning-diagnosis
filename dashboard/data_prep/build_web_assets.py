@@ -9,7 +9,7 @@ O que faz   : Gera os assets do site (dashboard/) a partir do GeoPackage final
               Vite serve os arquivos em dev/build.
 Saída       : {REPORT_DIR}/ (fora do git): report.json, imgs/*.png
               dashboard/public/data/ (gitignored): cópia do acima
-Requer      : 13_build_geopackage.py e 14_analises.py já rodados.
+Requer      : build_geopackage.py e analises.py já rodados.
 
 Estilo dos mapas (título, norte, escala, inset de localização, tipografia
 Inter) vem de estilo_mapa.py, neste mesmo diretório — ver esse arquivo para
@@ -23,7 +23,7 @@ Google Drive do projeto.
 
 A análise descritiva da área (texto específico do projeto, não genérico) vem
 de {LOCAL_DATA_DIR}/analise_area.md — mesmo lugar de outros inputs manuais do
-projeto (ver 12_dados_locais.py). Leitura tolerante: se não existir, o campo
+projeto (ver dados_locais.py). Leitura tolerante: se não existir, o campo
 fica vazio e o site mostra a seção só quando o texto existir.
 
 Para adaptar: a lista MAPAS controla quais camadas/indicadores viram figura.
@@ -47,19 +47,6 @@ import matplotlib.pyplot as plt  # noqa: E402
 import geopandas as gpd  # noqa: E402
 from shapely.geometry import box  # noqa: E402
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    BBOX,
-    CRS_PROJETO,
-    CRS_WGS84,
-    GPKG_PATH,
-    IBGE_COD_MUN,
-    LOCAL_DATA_DIR,
-    MUNICIPIO,
-    REPORT_DIR,
-    TITULO_PROJETO,
-)
-
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from estilo_mapa import (  # noqa: E402
     aplicar_estilo,
@@ -79,26 +66,19 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DASHBOARD_DIR = SCRIPT_DIR.parent
 PUBLIC_DATA_DIR = DASHBOARD_DIR / "public" / "data"
 
-ANALISE_AREA_MD = LOCAL_DATA_DIR / "analise_area.md"
-COD_UF = IBGE_COD_MUN[:2]
-
 DPI = 140
 
+# Preenchidos por main(cfg) — usados como globais pelas funções auxiliares
+# abaixo (carregar, base_ax, ler_analise_area, sincronizar_public_data).
+CRS_PROJETO = None
+GPKG_PATH = None
+MUNICIPIO = None
+TITULO_PROJETO = None
+BBOX_BOUNDARY = None
+ANALISE_AREA_MD = None
+REPORT_DIR = None
+CAMADA_INTERVENCAO = None
 
-def slug(texto):
-    t = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
-    return t.lower().replace(" ", "_").replace("/", "-")
-
-
-CIDADE_SLUG = slug(MUNICIPIO)
-
-# Contorno do BBOX do projeto (config.py, WGS84) reprojetado uma vez para o
-# CRS do projeto — desenhado em todos os mapas para dar contexto de até onde
-# vai a área de estudo (ver base_ax).
-BBOX_BOUNDARY = (
-    gpd.GeoSeries([box(BBOX["west"], BBOX["south"], BBOX["east"], BBOX["north"])], crs=CRS_WGS84)
-    .to_crs(CRS_PROJETO)
-)
 
 # Mapas a renderizar. kind: "categorico" | "continuo".
 #   col       : coluna de h3_sintese
@@ -143,16 +123,22 @@ def carregar():
             contexto[camada] = gpd.read_file(GPKG_PATH, layer=camada).to_crs(CRS_PROJETO)
         except Exception:
             contexto[camada] = None
-    # Contorno da área de projeto e do loteamento — desenhados por cima dos
-    # hexágonos pra dar referência de onde fica o recorte de intervenção
+    # Contorno da área de projeto (sempre) e da camada de intervenção
+    # (opcional, ver CAMADA_INTERVENCAO no config.py) — desenhados por cima
+    # dos hexágonos pra dar referência de onde fica o recorte de intervenção
     # dentro da área de estudo (ver render_*).
-    for camada in ("area_de_projeto", "loteamento-jardim-bassoli"):
+    try:
+        contexto["area_de_projeto"] = gpd.read_file(GPKG_PATH, layer="area_de_projeto").to_crs(CRS_PROJETO)
+    except Exception:
+        contexto["area_de_projeto"] = None
+    contexto["camada_intervencao"] = None
+    if CAMADA_INTERVENCAO:
         try:
-            contexto[camada] = gpd.read_file(GPKG_PATH, layer=camada).to_crs(CRS_PROJETO)
+            contexto["camada_intervencao"] = gpd.read_file(GPKG_PATH, layer=CAMADA_INTERVENCAO).to_crs(CRS_PROJETO)
         except Exception:
-            contexto[camada] = None
+            contexto["camada_intervencao"] = None
     # Limite municipal inteiro (não recortado pelo bbox — ler_recorte de
-    # 04_dados_municipais.py filtra por interseção mas mantém a feição
+    # dados_municipais.py filtra por interseção mas mantém a feição
     # completa) — usado só pelo inset, para mostrar o bbox do projeto dentro
     # da cidade.
     try:
@@ -166,7 +152,7 @@ def carregar():
 # coluna "highway") — via mais importante = linha mais grossa, como nos
 # mapas de referência do Guilherme. Checado por substring porque algumas
 # feições vêm com mais de uma tag (ex.: "['unclassified', 'residential']",
-# ver cabeçalho do 01_download_osm.py) — a primeira classe que bater na
+# ver cabeçalho do download_osm.py) — a primeira classe que bater na
 # lista abaixo (ordem = hierarquia, maior primeiro) decide a largura.
 LARGURA_VIARIO = [
     (("motorway", "trunk", "primary"), 0.9),
@@ -186,14 +172,15 @@ def _largura_via(highway):
 
 
 def desenhar_contexto_sobre_hex(ax_mapa, contexto):
-    """Vias e contornos de referência (área de projeto, loteamento) por cima
-    dos hexágonos (zorder maior) — o viário embaixo ficava invisível com o
-    preenchimento opaco; por cima, funciona como as linhas brancas de rua
-    que aparecem nos mapas coropléticos de referência. Espessura do viário
-    por hierarquia (ver LARGURA_VIARIO); contorno da área de projeto fino e
-    pontilhado (contexto, não o recorte de intervenção em si); contorno do
-    loteamento Jardim Bassoli grosso, sólido e preto (o recorte de
-    intervenção propriamente dito — precisa se destacar dos dois acima)."""
+    """Vias e contornos de referência (área de projeto, camada de
+    intervenção) por cima dos hexágonos (zorder maior) — o viário embaixo
+    ficava invisível com o preenchimento opaco; por cima, funciona como as
+    linhas brancas de rua que aparecem nos mapas coropléticos de
+    referência. Espessura do viário por hierarquia (ver LARGURA_VIARIO);
+    contorno da área de projeto fino e pontilhado (contexto, não o recorte
+    de intervenção em si); contorno da camada de intervenção (opcional, ver
+    CAMADA_INTERVENCAO no config.py — ex.: um loteamento dentro da área de
+    estudo) grosso, sólido e preto, pra se destacar do contorno acima."""
     viario = contexto.get("viario")
     if viario is not None:
         larguras = viario["highway"].apply(_largura_via) if "highway" in viario.columns else 0.3
@@ -201,8 +188,8 @@ def desenhar_contexto_sobre_hex(ax_mapa, contexto):
     if contexto.get("area_de_projeto") is not None:
         contexto["area_de_projeto"].boundary.plot(
             ax=ax_mapa, color="#2b2b2b", linewidth=0.7, linestyle=(0, (1, 1.6)), zorder=4)
-    if contexto.get("loteamento-jardim-bassoli") is not None:
-        contexto["loteamento-jardim-bassoli"].boundary.plot(
+    if contexto.get("camada_intervencao") is not None:
+        contexto["camada_intervencao"].boundary.plot(
             ax=ax_mapa, color="#000000", linewidth=1.8, zorder=4)
 
 
@@ -273,7 +260,7 @@ def render_categorico(hexg, contexto, municipio, m, out_png):
 
 def ler_analise_area():
     """Leitura tolerante: se o arquivo não existir, avisa e segue (mesmo
-    padrão de 12_dados_locais.py) — o site mostra a seção só quando houver
+    padrão de dados_locais.py) — o site mostra a seção só quando houver
     texto."""
     if not ANALISE_AREA_MD.exists():
         print(f"  [aviso] análise da área não encontrada: {ANALISE_AREA_MD}")
@@ -290,7 +277,30 @@ def sincronizar_public_data():
     shutil.copytree(REPORT_DIR, PUBLIC_DATA_DIR)
 
 
-def main():
+def main(cfg):
+    global CRS_PROJETO, GPKG_PATH, MUNICIPIO, TITULO_PROJETO, BBOX_BOUNDARY, ANALISE_AREA_MD, REPORT_DIR, CAMADA_INTERVENCAO
+
+    CRS_PROJETO = cfg.CRS_PROJETO
+    GPKG_PATH = cfg.GPKG_PATH
+    MUNICIPIO = cfg.MUNICIPIO
+    TITULO_PROJETO = cfg.TITULO_PROJETO
+    ANALISE_AREA_MD = cfg.LOCAL_DATA_DIR / "analise_area.md"
+    REPORT_DIR = cfg.REPORT_DIR
+    # Opcional: nome da camada (no GeoPackage) de um sub-recorte de
+    # intervenção dentro da área de estudo (ex.: um loteamento). Projetos
+    # sem esse conceito simplesmente não definem CAMADA_INTERVENCAO no
+    # config.py — leitura tolerante, igual a analise_area.md.
+    CAMADA_INTERVENCAO = getattr(cfg, "CAMADA_INTERVENCAO", None)
+
+    # Contorno do BBOX do projeto (config.py, WGS84) reprojetado uma vez para o
+    # CRS do projeto — desenhado em todos os mapas para dar contexto de até onde
+    # vai a área de estudo (ver base_ax).
+    BBOX_BOUNDARY = (
+        gpd.GeoSeries([box(cfg.BBOX["west"], cfg.BBOX["south"], cfg.BBOX["east"], cfg.BBOX["north"])],
+                      crs=cfg.CRS_WGS84)
+        .to_crs(CRS_PROJETO)
+    )
+
     hexg, contexto, localizacao = carregar()
     # Limpa REPORT_DIR antes de escrever — evita misturar com resíduos de
     # formatos antigos (ex.: imgs/<cidade>/ do generate_report.py aposentado).
@@ -342,5 +352,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)
     print("\nConcluído.")

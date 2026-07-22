@@ -1,5 +1,5 @@
 """
-01_download_osm.py
+download_osm.py
 -------------------
 O que faz   : Baixa dados do OpenStreetMap para a área definida no config.py.
 Camadas     : viario, edificacoes_osm, pontos_onibus, ciclovia, parques_osm,
@@ -10,7 +10,7 @@ Fonte       : OpenStreetMap via osmnx (viário, edificações, ciclovias,
               public_transport=platform).
 
 `hidrografia_osm` é o fallback nacional/global de hidrografia — usado pelo
-05_app_corregos.py só quando não há hidrografia municipal (04). Sempre
+app_corregos.py só quando não há hidrografia municipal (04). Sempre
 baixada aqui (barata), mesmo que acabe não sendo usada.
 Saída       : {DATA_DIR}/osm.gpkg — uma camada por feature, já reprojetada
               para CRS_PROJETO.
@@ -21,7 +21,7 @@ Para adaptar: ajuste BBOX e MUNICIPIO no config.py. Verifique a cobertura
 
 Como rodar  : a partir da pasta do projeto (onde está o config.py):
               cd projetos/campinas
-              python ../../scripts/pipeline/01_download_osm.py
+              python ../../scripts/pipeline/download_osm.py
 """
 
 import sys
@@ -34,28 +34,12 @@ import osmnx as ox
 from osmnx._errors import InsufficientResponseError
 from shapely.geometry import Point
 
-sys.path.insert(0, str(Path.cwd()))
-from config import BBOX, CRS_PROJETO, CRS_WGS84, DATA_DIR, RAW_CATALOG  # noqa: E402
-
-OSM_GPKG_PATH = DATA_DIR / "osm.gpkg"
-
-# Por padrão o osmnx grava cache de respostas HTTP em ./cache/, relativo à
-# pasta de onde o script é rodado — o que poluiria o repositório do projeto.
-# Redireciona para a pasta que o próprio catálogo osm/ já usa para isso
-# (raw_dir/osm/overpass_cache/), compartilhada entre todos os projetos —
-# nunca uma pasta nova por projeto dentro do raw_dir.
-ox.settings.cache_folder = str(RAW_CATALOG / "osm" / "overpass_cache")
-
-# A API do Overpass rejeita (HTTP 406) requisições sem um User-Agent
-# identificável; overpy usa urllib puro e não expõe um jeito direto de
-# configurar headers, então registramos um opener global com User-Agent.
-_opener = urllib.request.build_opener()
-_opener.addheaders = [("User-Agent", "diagnostico-urbanistico/1.0")]
-urllib.request.install_opener(_opener)
-
-# bbox no formato exigido pelo osmnx 2.x: (left, bottom, right, top)
-# ou seja (west, south, east, north)
-OSMNX_BBOX = (BBOX["west"], BBOX["south"], BBOX["east"], BBOX["north"])
+# BBOX, CRS_PROJETO, CRS_WGS84, OSM_GPKG_PATH e OSMNX_BBOX são preenchidos
+# por main(cfg) — usados como globais pelas funções auxiliares abaixo, que
+# também rodam quando o arquivo é chamado standalone (ver bloco __main__).
+BBOX = CRS_PROJETO = CRS_WGS84 = None
+OSM_GPKG_PATH = None
+OSMNX_BBOX = None
 
 
 def salvar_camada(gdf, nome):
@@ -150,7 +134,32 @@ def baixar_pontos_onibus():
     salvar_camada(gdf, "pontos_onibus")
 
 
-if __name__ == "__main__":
+def main(cfg):
+    global BBOX, CRS_PROJETO, CRS_WGS84, OSM_GPKG_PATH, OSMNX_BBOX
+
+    BBOX = cfg.BBOX
+    CRS_PROJETO = cfg.CRS_PROJETO
+    CRS_WGS84 = cfg.CRS_WGS84
+    OSM_GPKG_PATH = cfg.DATA_DIR / "osm.gpkg"
+
+    # Por padrão o osmnx grava cache de respostas HTTP em ./cache/, relativo
+    # à pasta de onde o script é rodado — o que poluiria o repositório do
+    # projeto. Redireciona para a pasta que o próprio catálogo osm/ já usa
+    # para isso (raw_dir/osm/overpass_cache/), compartilhada entre todos os
+    # projetos — nunca uma pasta nova por projeto dentro do raw_dir.
+    ox.settings.cache_folder = str(cfg.RAW_CATALOG / "osm" / "overpass_cache")
+
+    # A API do Overpass rejeita (HTTP 406) requisições sem um User-Agent
+    # identificável; overpy usa urllib puro e não expõe um jeito direto de
+    # configurar headers, então registramos um opener global com User-Agent.
+    _opener = urllib.request.build_opener()
+    _opener.addheaders = [("User-Agent", "diagnostico-urbanistico/1.0")]
+    urllib.request.install_opener(_opener)
+
+    # bbox no formato exigido pelo osmnx 2.x: (left, bottom, right, top)
+    # ou seja (west, south, east, north)
+    OSMNX_BBOX = (BBOX["west"], BBOX["south"], BBOX["east"], BBOX["north"])
+
     print(f"Área de estudo (WGS84): {BBOX}")
     print(f"Destino: {OSM_GPKG_PATH}\n")
 
@@ -162,3 +171,9 @@ if __name__ == "__main__":
     baixar_pontos_onibus()
 
     print("\nConcluído.")
+
+
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

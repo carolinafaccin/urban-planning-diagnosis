@@ -96,23 +96,47 @@ No `config.py` isso vira `RAW_CATALOG` (raiz de leitura) e `DATA_DIR`
 ## Rodando
 
 Sempre a partir da pasta do projeto — o `cd` é obrigatório, não cosmético
-(o `config.py` é importado do diretório de trabalho):
+(o `config.py` é importado do diretório de trabalho). O orquestrador
+(`scripts/pipeline/run.py`) roda o pipeline inteiro, na ordem definida em
+`scripts/pipeline/manifest.py`, terminando no site publicado:
 
 ```bash
 cd projetos/campinas
-python ../../scripts/pipeline/01_download_osm.py
+python ../../scripts/pipeline/run.py                          # pipeline inteiro + site + deploy
+python ../../scripts/pipeline/run.py --from h3_dasimetrico     # a partir de um passo
+python ../../scripts/pipeline/run.py --only analises           # só um passo
+python ../../scripts/pipeline/run.py --skip deploy             # pula um passo (ex.: iterando sem publicar)
 ```
+
+Cada script também roda isolado, sem o orquestrador (útil iterando em um
+passo específico):
+
+```bash
+cd projetos/campinas
+python ../../scripts/pipeline/download_osm.py
+```
+
+Passos que dependem de dado/config manual (ex.: `dados_municipais`,
+`indicadores_municipais`, `dados_locais`) imprimem uma linha `SKIP: ...` e
+seguem sem travar quando o dado não existe — o resumo final do `run.py`
+lista o que foi pulado e por quê.
 
 ## Replicando para uma nova cidade/bairro
 
 ```bash
-cp -r projetos/campinas projetos/<nova_cidade>
-# edite o config.py: PROJECT_NAME, MUNICIPIO, UF, IBGE_COD_MUN, BBOX, ANCORA_*,
-# PAGES_PROJECT/PAGES_BRANCH (site do novo projeto)
-# (não copie a pasta ref/ — ela é específica do projeto de origem)
+python scripts/novo_projeto.py <slug> --municipio "Sorocaba" --uf SP \
+    --ibge-cod-mun 3552205 --titulo "Diagnóstico urbanístico de <bairro>, em Sorocaba"
+```
 
-cd projetos/<nova_cidade>
-python ../../scripts/pipeline/01_download_osm.py
+Gera `projetos/<slug>/config.py` a partir do template
+(`projetos/_template/config.py`) com a identificação básica preenchida. O
+comando imprime um checklist do que ainda exige decisão humana antes de
+rodar (BBOX, CRS_PROJETO, ANCORA_COORD, H3_PESOS, CAMADAS_MUNICIPAIS,
+CAMADA_INTERVENCAO — todos marcados `# TODO(scaffold)` no arquivo gerado).
+
+```bash
+cd projetos/<slug>
+python ../../scripts/pipeline/run.py
 ```
 
 Nenhum script precisa ser editado — nenhum nome de lugar, coordenada ou
@@ -122,29 +146,32 @@ CRS está hard-coded neles.
 
 ## Scripts
 
-O pipeline é organizado em torno de uma **malha H3 res10**: os scripts 01–05
-trazem os dados por fonte (04 e 05 são opcionais — dados municipais e APP de
-córregos), o 06/07 montam a malha e recebem o Censo por **interpolação
-dasimétrica** (peso = domicílios do CNEFE), os 08–11 anexam indicadores de
-raster/pontos por hexágono (09 opcional, indicadores municipais), e o
-13/14 consolidam e pontuam.
+O pipeline é organizado em torno de uma **malha H3 res10**: os primeiros
+scripts trazem os dados por fonte (`dados_municipais`/`app_corregos` são
+opcionais), `cnefe`/`h3_dasimetrico` montam a malha e recebem o Censo por
+**interpolação dasimétrica** (peso = domicílios do CNEFE), os scripts
+seguintes anexam indicadores de raster/pontos por hexágono
+(`indicadores_municipais` opcional), e `build_geopackage`/`analises`
+consolidam e pontuam. A ordem canônica de execução vive em
+`scripts/pipeline/manifest.py`, não no nome dos arquivos — ver
+`scripts/pipeline/run.py`.
 
 | Script (`scripts/pipeline/`) | O que faz | Saída |
 | --- | --- | --- |
-| `01_download_osm.py` | Viário, ciclovias, parques, pontos de ônibus (OSM) | `osm.gpkg` |
-| `02_download_ibge.py` | Setores + Censo 2022 (arborização, iluminação, calçada, renda) + país/UF/município para o mapa de localização (sem recorte de bbox) | `ibge.gpkg`, `localizacao.gpkg` |
-| `03_overture_edificacoes.py` | Edificações do Overture por bbox, filtradas por confiança | `edificacoes.gpkg` |
-| `04_dados_municipais.py` | Ingere o catálogo de dados municipais (prefeitura), opt-in | `municipais.gpkg` |
-| `05_app_corregos.py` | APP de córregos (Código Florestal) a partir da hidrografia | `app_corregos.gpkg` |
-| `06_cnefe.py` | Varre o CNEFE da UF → recorte + uso do solo + domicílios por hexágono | 3 parquets |
-| `07_h3_dasimetrico.py` | Malha H3 res10 + interpolação dasimétrica do Censo + uso do solo | `h3.gpkg::h3_base` |
-| `08_mapbiomas.py` | Cobertura do solo (Coleção 10) por hexágono | `h3_mapbiomas.parquet` |
-| `09_indicadores_municipais.py` | % de cobertura por hexágono das camadas municipais que alimentam o score | `h3_municipal.parquet` |
-| `10_cool_cities.py` | LST, vegetação, risco de calor, UTCI e cenários (Cool Cities Lab) | `h3_cool_cities.parquet` |
-| `11_queimadas.py` | Focos de calor (INPE) por hexágono | `h3_queimadas.parquet` |
-| `12_dados_locais.py` | Ingere geojsons à mão + fornecidos pela prefeitura | `locais.gpkg` |
-| `13_build_geopackage.py` | Consolida hexágonos + vetores no `.gpkg` final, grava `_metadados` | `{PROJECT_NAME}.gpkg` |
-| `14_analises.py` | Score de prioridade, cobertura de ônibus, raio de caminhabilidade | `h3_sintese`, ... |
+| `download_osm.py` | Viário, ciclovias, parques, pontos de ônibus (OSM) | `osm.gpkg` |
+| `download_ibge.py` | Setores + Censo 2022 (arborização, iluminação, calçada, renda) + país/UF/município para o mapa de localização (sem recorte de bbox) | `ibge.gpkg`, `localizacao.gpkg` |
+| `overture_edificacoes.py` | Edificações do Overture por bbox, filtradas por confiança | `edificacoes.gpkg` |
+| `dados_municipais.py` | Ingere o catálogo de dados municipais (prefeitura), opt-in | `municipais.gpkg` |
+| `app_corregos.py` | APP de córregos (Código Florestal) a partir da hidrografia | `app_corregos.gpkg` |
+| `cnefe.py` | Varre o CNEFE da UF → recorte + uso do solo + domicílios por hexágono | 3 parquets |
+| `h3_dasimetrico.py` | Malha H3 res10 + interpolação dasimétrica do Censo + uso do solo | `h3.gpkg::h3_base` |
+| `mapbiomas.py` | Cobertura do solo (Coleção 10) por hexágono | `h3_mapbiomas.parquet` |
+| `indicadores_municipais.py` | % de cobertura por hexágono das camadas municipais que alimentam o score | `h3_municipal.parquet` |
+| `cool_cities.py` | LST, vegetação, risco de calor, UTCI e cenários (Cool Cities Lab) | `h3_cool_cities.parquet` |
+| `queimadas.py` | Focos de calor (INPE) por hexágono | `h3_queimadas.parquet` |
+| `dados_locais.py` | Ingere geojsons à mão + fornecidos pela prefeitura | `locais.gpkg` |
+| `build_geopackage.py` | Consolida hexágonos + vetores no `.gpkg` final, grava `_metadados` | `{PROJECT_NAME}.gpkg` |
+| `analises.py` | Score de prioridade, cobertura de ônibus, raio de caminhabilidade | `h3_sintese`, ... |
 
 **`scripts/gee/`** — fallback de LST/NDVI para cidades sem Cool Cities Lab, e
 base do catálogo nacional res10: `gee_centroides_res10.py` (gera o CSV de

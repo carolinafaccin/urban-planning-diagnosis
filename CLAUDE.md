@@ -43,7 +43,7 @@ dentro do `raw_dir` — teve que ser removida manualmente). **Não repita.**
   - Scripts **nunca criam uma pasta nova nomeada com o projeto/cidade
     dentro de `raw_dir`**. Se precisam cachear algo bruto (ex.: respostas
     de API), usam a subpasta que a própria fonte já convenciona (ex.:
-    `01_download_osm.py` aponta o cache do osmnx para
+    `download_osm.py` aponta o cache do osmnx para
     `raw_dir/osm/overpass_cache/`, que já existia antes deste repo).
   - Antes de escrever um script que baixa/processa um dado, **cheque se ele
     já existe em `raw_dir`** lendo o README daquela fonte. Ex.:
@@ -73,17 +73,17 @@ nacionais/globais — nunca substituídos por dado municipal, em nenhuma cidade.
 Toda camada municipal (desta cidade ou de uma futura) se encaixa numa destas:
 
 1. **Sempre global/nacional** (nunca há substituto): edificações
-   (`03_overture_edificacoes.py`), viário/topologia (`01_download_osm.py`),
+   (`overture_edificacoes.py`), viário/topologia (`download_osm.py`),
    censo (`02`/`06`). Um dado municipal equivalente (ex.: classificação
    viária por decreto) só entra como **enriquecimento de atributo** sobre a
    camada global — nunca a substitui — porque a topologia de rede do OSM
    (grafo conectado, nós roteáveis) tem garantias que um shapefile municipal
    de eixos tipicamente não tem. Ver `enriquecer_viario()` em
-   `04_dados_municipais.py`: gera `viario_enriquecido.gpkg` (cópia do viário
+   `dados_municipais.py`: gera `viario_enriquecido.gpkg` (cópia do viário
    OSM + coluna extra via join espacial), sem tocar em `osm.gpkg`.
 2. **Preferir municipal, fallback global** — quando os dois alimentam o MESMO
    indicador do score. Usa o mecanismo que já existe em
-   `14_analises.py::INDICADORES` (`fontes=[...]`, primeira coluna presente
+   `analises.py::INDICADORES` (`fontes=[...]`, primeira coluna presente
    vence — o mesmo que já resolve LST do Cool Cities OU do GEE). Não inventar
    um novo mecanismo de fallback por camada; sempre estender essa lista.
 3. **Exclusivo municipal, aditivo** (sem equivalente global no pipeline
@@ -104,8 +104,8 @@ chave de H3_PESOS que essa camada alimenta}`. Ver
 `projetos/campinas/config.py` para o exemplo populado (dezenas de camadas —
 contagem exata varia, ver o dict no arquivo).
 
-Scripts que leem esse registro: `04_dados_municipais.py` (ingestão bruta,
-recorte por bbox → `municipais.gpkg`) e `09_indicadores_municipais.py`
+Scripts que leem esse registro: `dados_municipais.py` (ingestão bruta,
+recorte por bbox → `municipais.gpkg`) e `indicadores_municipais.py`
 (zonal stats de % de cobertura por hexágono para as entradas com
 `indicador_score` → `h3_municipal.parquet`, consumido pelo `14`).
 
@@ -155,10 +155,43 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
 - Scripts rodam a partir da pasta do projeto (o `config.py` é importado via
   `sys.path.insert(0, str(Path.cwd()))` — por isso o `cd` antes de rodar é
   obrigatório, não cosmético):
-  `cd projetos/campinas && python ../../scripts/01_download_osm.py`.
+  `cd projetos/campinas && python ../../scripts/pipeline/download_osm.py`.
 - `REPO_ROOT` no `config.py` é resolvido por busca ascendente (helper
   `_find_repo_root`, procura a pasta que contém `config/config.local.json`)
   — robusto a mudanças de profundidade. Não usar índice fixo de `parents[N]`.
+- **Arquivos de `scripts/pipeline/` não têm número no nome** (decisão
+  2026-07-22: numeração como `01_`/`14_` acoplava ordem de execução a nome de
+  arquivo — inserir um passo no meio exigia renumerar tudo). A ordem canônica
+  vive só em `scripts/pipeline/manifest.py` (lista `PASSOS`, com `opcional`
+  marcando passos que dependem de dado/config manual).
+- Cada script expõe `def main(cfg):` recebendo o **módulo** `config` inteiro
+  (não os símbolos soltos) — permite que `scripts/pipeline/run.py`
+  (orquestrador) importe e chame cada passo em processo, em vez de disparar
+  um subprocess por script. Uso standalone continua idêntico: o bloco
+  `if __name__ == "__main__":` faz o `sys.path.insert`/`import config` de
+  sempre e chama `main(config)`. Convenção assumida: sempre um projeto por
+  processo Python — não há suporte a rodar duas cidades na mesma invocação
+  (evita o risco de `sys.modules["config"]` cacheado entre projetos).
+- `scripts/pipeline/run.py` roda o pipeline inteiro (ou um recorte, via
+  `--from`/`--only`/--`skip`), terminando no site publicado (últimos passos
+  do manifesto: `build_web_assets` + `deploy`, este último facilmente pulável
+  com `--skip deploy`). Convenção `SKIP:` — um passo que pula uma sub-etapa
+  por falta de dado manual imprime uma linha começando literalmente com
+  `SKIP:`; o orquestrador captura essas linhas (sem deixar de exibi-las em
+  tempo real) e resume no final o que rodou/pulou e por quê. Não inventar
+  outro mecanismo de sinalização — estender essa convenção.
+- `scripts/novo_projeto.py <slug> --municipio ... --uf ... --ibge-cod-mun ...
+  --titulo ...` gera `projetos/<slug>/config.py` a partir do template em
+  `projetos/_template/config.py`, preenchendo só a identificação básica
+  (`PROJECT_NAME`, `MUNICIPIO`, `UF`, `IBGE_COD_MUN`, `TITULO_PROJETO`,
+  `PAGES_BRANCH` derivado do slug). Campos que exigem decisão humana (`BBOX`,
+  `CRS_PROJETO`, `ANCORA_COORD`, `H3_PESOS`, `CAMADAS_MUNICIPAIS`,
+  `CAMADA_INTERVENCAO`) ficam marcados `# TODO(scaffold)` no arquivo gerado
+  — o scaffold não inventa esses valores, só reduz a fricção de criar o
+  arquivo. `MUNICIPIO_SLUG` usa slugify de verdade (`_slugificar`, remove
+  acento/espaço) — `MUNICIPIO.lower()` sozinho quebrava para município com
+  espaço no nome (ex. "São José dos Campos"); só funcionava em Campinas por
+  acidente (nome de uma palavra só).
 - Nada de dado entra no git — nem de `raw_dir`, nem de `data_dir`, nem na
   pasta do projeto. O repo guarda só código. Ver `.gitignore`
   (`projetos/**/data/`, `**/cache/`, `**/*.gpkg` como rede de segurança).
@@ -179,7 +212,7 @@ pipeline genérico só começa a existir a partir do shapefile já pousado em
 - A análise descritiva da área (texto específico do projeto, diferente da
   descrição genérica de cada indicador) vem de
   `{LOCAL_DATA_DIR}/analise_area.md` — mesmo lugar de outros inputs manuais
-  do projeto (ver `12_dados_locais.py`). Leitura tolerante: se não existir,
+  do projeto (ver `dados_locais.py`). Leitura tolerante: se não existir,
   a seção não aparece.
 - `dashboard/deploy.py` builda (`npm run build`) e publica no Cloudflare
   Pages, lendo `PAGES_PROJECT`/`PAGES_BRANCH` do `config.py` do projeto —
@@ -246,7 +279,7 @@ pip install -r requirements.txt
 - **Overpass API rejeita requisições sem User-Agent** (HTTP 406). `overpy`
   usa `urllib` puro e não expõe headers na API pública — a correção é
   registrar um opener global via `urllib.request.install_opener()` antes de
-  qualquer chamada (ver início de `01_download_osm.py`).
+  qualquer chamada (ver início de `download_osm.py`).
 - **osmnx grava cache HTTP em `./cache/` por padrão**, relativo à pasta onde
   o script roda — polui o repo se não for redirecionado via
   `ox.settings.cache_folder` (ver regra `raw_dir` acima: aponta para
@@ -263,16 +296,16 @@ pip install -r requirements.txt
   2022 é de outra versão que o `cd_setor` da malha `br_setores.gpkg` (num caso
   observado, distrito 05 no CNEFE vs 30/35 na malha, para o mesmo lugar). Join
   por código dá zero match silencioso. Sempre atribua setor por **join
-  espacial** (point-in-polygon), nunca por código. Ver cabeçalho do `06_cnefe.py`.
+  espacial** (point-in-polygon), nunca por código. Ver cabeçalho do `cnefe.py`.
 - **Interpolação dasimétrica: intensiva ≠ extensiva.** A fórmula do
   climate-injustice-index (`Valor × domicílios/total_setor`) é para *contagens*
   (extensivas). Renda e percentuais são *médias/taxas* (intensivas) e precisam
   de **média ponderada por domicílios dentro do hexágono**. Trocar uma pela
   outra subestima o valor silenciosamente (renda saiu ~536 em vez de ~2.290 na
-  1ª versão). Ver cabeçalho do `07_h3_dasimetrico.py`.
+  1ª versão). Ver cabeçalho do `h3_dasimetrico.py`.
 - **A malha de setores tem 1,4 GB.** Filtrar por bbox usa o índice espacial
   (~10s); filtrar por atributo (`where=`) varre a tabela inteira (minutos no
-  Drive). Ver `02_download_ibge.py`.
+  Drive). Ver `download_ibge.py`.
 - **CNEFE por UF tem ~3,6 GB.** O `06` varre uma vez e salva um recorte do
   projeto (`processed/cnefe_recorte.parquet`) — os demais scripts leem o
   recorte, não a UF.
@@ -322,12 +355,12 @@ pip install -r requirements.txt
   de tarefas em `projetos/<cidade>/ref/` (fora do git).
 - Educação: o `06` já extrai ensino/saúde do CNEFE geocodificados — pode
   dispensar uma fonte INEP separada.
-- **Dados municipais (prefeitura) integrados** via `04_dados_municipais.py` e
-  `09_indicadores_municipais.py`, com fallback para nacional/global
+- **Dados municipais (prefeitura) integrados** via `dados_municipais.py` e
+  `indicadores_municipais.py`, com fallback para nacional/global
   (framework de 3 categorias acima). Campinas tem dezenas de camadas
   catalogadas em `CAMADAS_MUNICIPAIS` (raw_dir/prefeituras_municipais/campinas/),
   já rodado ponta a ponta contra o GeoPackage de produção.
-- **Mapa de localização (país/UF/município)**: `02_download_ibge.py` também
+- **Mapa de localização (país/UF/município)**: `download_ibge.py` também
   gera `localizacao.gpkg` (camadas `pais`, `uf`, `municipios_uf`) a partir da
   malha municipal do IBGE (`raw_dir/ibge/malha_municipal/`) — únicas camadas
   do pipeline que **não** são recortadas pelo BBOX do projeto (ficam na

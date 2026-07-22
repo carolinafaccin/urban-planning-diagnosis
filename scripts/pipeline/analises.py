@@ -1,12 +1,12 @@
 """
-14_analises.py
+analises.py
 --------------
 O que faz   : Calcula o score de prioridade por hexágono (mapas 16 e 17) e as
               análises derivadas de acesso. Lê h3_indicadores do GeoPackage
               final e grava h3_sintese (com score e classe de prioridade) +
               cobertura de transporte no mesmo .gpkg.
 Camadas     : h3_sintese, cobertura_onibus (e raio_ancora, se a âncora existir)
-Requer      : 13_build_geopackage.py já rodado.
+Requer      : build_geopackage.py já rodado.
 
 Score de prioridade
 -------------------
@@ -24,7 +24,7 @@ renormalizados. A coluna `tem_populacao` distingue os dois casos, e
 Cada indicador aceita mais de uma fonte (ex.: LST do Cool Cities OU do GEE),
 então o mesmo script serve a cidades com e sem Cool Cities. Mesmo mecanismo
 usado para preferir dado MUNICIPAL sobre nacional/global quando disponível
-(ver `deficit_verde`: `municipal_pct_verde`, do 09_indicadores_municipais.py,
+(ver `deficit_verde`: `municipal_pct_verde`, do indicadores_municipais.py,
 vem primeiro — cidade sem dado municipal cai para Cool Cities/GEE igual a
 antes). Ver framework de 3 categorias no CLAUDE.md.
 
@@ -32,7 +32,7 @@ Para adaptar: ajuste H3_PESOS no config.py. As fontes de cada indicador estão
               em INDICADORES abaixo (primeira coluna existente vence).
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/14_analises.py
+              python ../../scripts/pipeline/analises.py
 """
 
 import sys
@@ -42,16 +42,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    ANCORA_COORD,
-    BBOX,
-    CRS_PROJETO,
-    CRS_WGS84,
-    GPKG_PATH,
-    H3_PESOS,
-    RAIO_ANCORA,
-)
+# Preenchidos por main(cfg) — usados como globais pelas funções auxiliares
+# abaixo (calcular_score, cobertura_onibus, raio_ancora), chamadas de dentro
+# de main.
+ANCORA_COORD = BBOX = CRS_PROJETO = CRS_WGS84 = GPKG_PATH = H3_PESOS = RAIO_ANCORA = None
 
 # indicador (chave de H3_PESOS) → definição de como obtê-lo.
 #   fontes    : colunas candidatas, em ordem de preferência (1ª existente vence)
@@ -162,7 +156,17 @@ def raio_ancora(hexg):
                             geometry=[ponto.buffer(RAIO_ANCORA).iloc[0]], crs=CRS_PROJETO)
 
 
-def main():
+def main(cfg):
+    global ANCORA_COORD, BBOX, CRS_PROJETO, CRS_WGS84, GPKG_PATH, H3_PESOS, RAIO_ANCORA
+
+    ANCORA_COORD = cfg.ANCORA_COORD
+    BBOX = cfg.BBOX
+    CRS_PROJETO = cfg.CRS_PROJETO
+    CRS_WGS84 = cfg.CRS_WGS84
+    GPKG_PATH = cfg.GPKG_PATH
+    H3_PESOS = cfg.H3_PESOS
+    RAIO_ANCORA = cfg.RAIO_ANCORA
+
     hexg = gpd.read_file(GPKG_PATH, layer="h3_indicadores")
     hexg["tem_populacao"] = hexg["qtd_dom"].fillna(0) > 0
 
@@ -186,7 +190,10 @@ def main():
         raio.to_file(GPKG_PATH, layer="raio_ancora", driver="GPKG")
         print(f"  [raio_ancora] raio {RAIO_ANCORA} m salvo.")
 
+    print("\nConcluído.")
+
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

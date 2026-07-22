@@ -1,5 +1,5 @@
 """
-03_overture_edificacoes.py
+overture_edificacoes.py
 --------------------------
 O que faz   : Baixa as edificações do Overture Maps para o bbox e filtra por
               confiança de detecção. Substitui o OSM para footprints — em
@@ -27,12 +27,12 @@ tem seu próprio arquivo. Reexecuções com o mesmo bbox filtram do cache sem
 rebaixar. Apague o(s) arquivo(s) para forçar novo download.
 
 A fração construída por hexágono (pct_construido, p/ o score) é calculada no
-13_build_geopackage.py, que tem a malha H3 — este script só entrega a camada.
+build_geopackage.py, que tem a malha H3 — este script só entrega a camada.
 
 Para adaptar: nada específico. Usa BBOX e OVERTURE_CONF_MIN do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/03_overture_edificacoes.py
+              python ../../scripts/pipeline/overture_edificacoes.py
 """
 
 import hashlib
@@ -43,22 +43,10 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    BBOX,
-    CRS_PROJETO,
-    CRS_WGS84,
-    DATA_DIR,
-    OVERTURE_CONF_MIN,
-    PROCESSED_DIR,
-)
-
-EDIF_GPKG_PATH = DATA_DIR / "edificacoes.gpkg"
-
-# Hash curto do bbox no nome do cache — muda automaticamente se a área de
-# estudo mudar, para nunca servir silenciosamente o cache de outro bbox.
-_BBOX_HASH = hashlib.sha1(json.dumps(BBOX, sort_keys=True).encode()).hexdigest()[:8]
-RAW_CACHE = PROCESSED_DIR / f"overture_raw_{_BBOX_HASH}.parquet"
+# Preenchidos por main(cfg) — usados como globais por baixar_bruto(), que é
+# chamada de dentro de main.
+BBOX = None
+RAW_CACHE = None
 
 
 def baixar_bruto():
@@ -89,19 +77,29 @@ def confianca_e_osm(sources):
     return conf, tem_osm
 
 
-def main():
+def main(cfg):
+    global BBOX, RAW_CACHE
+
+    BBOX = cfg.BBOX
+    edif_gpkg_path = cfg.DATA_DIR / "edificacoes.gpkg"
+
+    # Hash curto do bbox no nome do cache — muda automaticamente se a área de
+    # estudo mudar, para nunca servir silenciosamente o cache de outro bbox.
+    bbox_hash = hashlib.sha1(json.dumps(BBOX, sort_keys=True).encode()).hexdigest()[:8]
+    RAW_CACHE = cfg.PROCESSED_DIR / f"overture_raw_{bbox_hash}.parquet"
+
     gdf = baixar_bruto()
 
     info = gdf["sources"].apply(confianca_e_osm)
     gdf["confianca"] = [c for c, _ in info]
     tem_osm = pd.Series([o for _, o in info], index=gdf.index)
 
-    manter = tem_osm | (gdf["confianca"].fillna(0) >= OVERTURE_CONF_MIN)
+    manter = tem_osm | (gdf["confianca"].fillna(0) >= cfg.OVERTURE_CONF_MIN)
     filtrado = gdf[manter].copy()
 
     print(f"\nEdificações: {len(gdf)} baixadas → {len(filtrado)} mantidas "
           f"({int(tem_osm.sum())} via OSM, "
-          f"{int((~tem_osm & manter).sum())} de ML com confiança ≥ {OVERTURE_CONF_MIN}).")
+          f"{int((~tem_osm & manter).sum())} de ML com confiança ≥ {cfg.OVERTURE_CONF_MIN}).")
 
     # GeoPackage não aceita colunas de listas/dicts (names, sources...) —
     # mantém só o essencial e reprojeta.
@@ -109,15 +107,18 @@ def main():
     filtrado = filtrado[[c for c in manter_cols if c in filtrado.columns]]
     # O Overture entrega em WGS84, mas o CRS pode não vir preenchido no gdf.
     if filtrado.crs is None:
-        filtrado = filtrado.set_crs(CRS_WGS84)
-    filtrado = filtrado.to_crs(CRS_PROJETO)
+        filtrado = filtrado.set_crs(cfg.CRS_WGS84)
+    filtrado = filtrado.to_crs(cfg.CRS_PROJETO)
     filtrado["area_m2"] = filtrado.geometry.area
 
-    filtrado.to_file(EDIF_GPKG_PATH, layer="edificacoes", driver="GPKG")
-    print(f"  [edificacoes] {len(filtrado)} feições → {EDIF_GPKG_PATH} "
+    filtrado.to_file(edif_gpkg_path, layer="edificacoes", driver="GPKG")
+    print(f"  [edificacoes] {len(filtrado)} feições → {edif_gpkg_path} "
           f"(área construída total: {filtrado['area_m2'].sum():,.0f} m²)")
+
+    print("\nConcluído.")
 
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

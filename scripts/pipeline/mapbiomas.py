@@ -1,15 +1,15 @@
 """
-08_mapbiomas.py
+mapbiomas.py
 ---------------
 O que faz   : Calcula a composição de cobertura do solo (MapBiomas) por
               hexágono da malha H3, via estatística zonal categórica, e deriva
               percentuais semânticos (verde, impermeável, água...).
 Saída       : {DATA_DIR}/processed/h3_mapbiomas.parquet (h3_id → pct_*)
-              (o 09_build_geopackage.py junta isto à geometria da malha)
+              (o build_geopackage.py junta isto à geometria da malha)
 Fonte       : raw_dir/mapbiomas/uso-e-cobertura_colecao-10/brazil_coverage_2024.tif
               (Coleção 10, uso e cobertura 2024; raster nacional EPSG:4326,
               ~30 m, uint8 com o código da classe MapBiomas por pixel)
-Requer      : 07_h3_dasimetrico.py já rodado (usa a geometria de h3_base).
+Requer      : h3_dasimetrico.py já rodado (usa a geometria de h3_base).
 
 Notas
 -----
@@ -25,7 +25,7 @@ Para adaptar: aponte MAPBIOMAS_TIF para a coleção/ano desejado. Os grupos
               ajustados sem tocar no resto.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/08_mapbiomas.py
+              python ../../scripts/pipeline/mapbiomas.py
 """
 
 import sys
@@ -35,13 +35,6 @@ import geopandas as gpd
 import pandas as pd
 import rasterio
 from rasterstats import zonal_stats
-
-sys.path.insert(0, str(Path.cwd()))
-from config import DATA_DIR, PROCESSED_DIR, RAW_CATALOG  # noqa: E402
-
-H3_GPKG_PATH = DATA_DIR / "h3.gpkg"
-OUT_PATH = PROCESSED_DIR / "h3_mapbiomas.parquet"
-MAPBIOMAS_TIF = RAW_CATALOG / "mapbiomas" / "uso-e-cobertura_colecao-10" / "brazil_coverage_2024.tif"
 
 # Grupos semânticos da legenda MapBiomas (códigos de classe → agregação).
 # Referência: legenda da Coleção MapBiomas (mapbiomas.org).
@@ -55,20 +48,24 @@ GRUPOS = {
 }
 
 
-def main():
-    if not MAPBIOMAS_TIF.exists():
-        raise FileNotFoundError(f"Raster MapBiomas não encontrado: {MAPBIOMAS_TIF}")
+def main(cfg):
+    h3_gpkg_path = cfg.DATA_DIR / "h3.gpkg"
+    out_path = cfg.PROCESSED_DIR / "h3_mapbiomas.parquet"
+    mapbiomas_tif = cfg.RAW_CATALOG / "mapbiomas" / "uso-e-cobertura_colecao-10" / "brazil_coverage_2024.tif"
 
-    hex_gdf = gpd.read_file(H3_GPKG_PATH, layer="h3_base")[["h3_id", "geometry"]]
+    if not mapbiomas_tif.exists():
+        raise FileNotFoundError(f"Raster MapBiomas não encontrado: {mapbiomas_tif}")
 
-    with rasterio.open(MAPBIOMAS_TIF) as src:
+    hex_gdf = gpd.read_file(h3_gpkg_path, layer="h3_base")[["h3_id", "geometry"]]
+
+    with rasterio.open(mapbiomas_tif) as src:
         raster_crs = src.crs
     hex_raster = hex_gdf.to_crs(raster_crs)
 
     print(f"Estatística zonal categórica em {len(hex_gdf)} hexágonos "
-          f"({MAPBIOMAS_TIF.name})...")
+          f"({mapbiomas_tif.name})...")
     stats = zonal_stats(
-        hex_raster, str(MAPBIOMAS_TIF), categorical=True, nodata=0, geojson_out=False
+        hex_raster, str(mapbiomas_tif), categorical=True, nodata=0, geojson_out=False
     )
 
     # stats: lista de dicts {codigo_classe: n_pixels}. Converte para % por grupo.
@@ -82,12 +79,15 @@ def main():
         linhas.append(linha)
 
     df = pd.DataFrame(linhas)
-    df.to_parquet(OUT_PATH)
-    print(f"\n  [h3_mapbiomas] {len(df)} hexágonos → {OUT_PATH.name}")
+    df.to_parquet(out_path)
+    print(f"\n  [h3_mapbiomas] {len(df)} hexágonos → {out_path.name}")
     print("\nComposição média na área (% do hexágono):")
     print(df[list(GRUPOS)].describe().round(1).loc[["mean", "min", "max"]].to_string())
 
+    print("\nConcluído.")
+
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

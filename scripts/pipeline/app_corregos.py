@@ -1,11 +1,11 @@
 """
-05_app_corregos.py
+app_corregos.py
 ------------------
 O que faz   : Calcula a faixa de Área de Preservação Permanente (APP) ao
               longo de cursos d'água, aplicando a largura mínima do Código
               Florestal sobre a hidrografia disponível — prefere a
-              hidrografia municipal (04_dados_municipais.py) e cai para o
-              `waterway` do OSM (01_download_osm.py) quando não houver.
+              hidrografia municipal (dados_municipais.py) e cai para o
+              `waterway` do OSM (download_osm.py) quando não houver.
 Camadas     : app_corregos (polígono, buffer dissolvido)
 Saída       : {DATA_DIR}/app_corregos.gpkg
 Fonte       : {DATA_DIR}/municipais.gpkg::hidrografia[_lagos] (preferencial)
@@ -32,7 +32,7 @@ Para adaptar: ajuste `APP_LARGURA_MIN` no config.py (metros). Nenhum nome de
               convenção do 04/01, não específicos de Campinas.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/05_app_corregos.py
+              python ../../scripts/pipeline/app_corregos.py
 """
 
 import sys
@@ -42,12 +42,10 @@ import geopandas as gpd
 import pandas as pd
 import pyogrio
 
-sys.path.insert(0, str(Path.cwd()))
-from config import APP_LARGURA_MIN, CRS_PROJETO, DATA_DIR  # noqa: E402
-
-MUNICIPAIS_GPKG_PATH = DATA_DIR / "municipais.gpkg"
-OSM_GPKG_PATH = DATA_DIR / "osm.gpkg"
-OUT_PATH = DATA_DIR / "app_corregos.gpkg"
+# Preenchidos por main(cfg) — usados como globais por carregar_hidrografia(),
+# chamada de dentro de main.
+MUNICIPAIS_GPKG_PATH = None
+OSM_GPKG_PATH = None
 
 CAMADAS_HIDRO_MUNICIPAL = ["hidrografia", "hidrografia_lagos"]
 CAMADA_HIDRO_OSM = "hidrografia_osm"
@@ -74,21 +72,30 @@ def carregar_hidrografia():
     return None
 
 
-def main():
+def main(cfg):
+    global MUNICIPAIS_GPKG_PATH, OSM_GPKG_PATH
+
+    MUNICIPAIS_GPKG_PATH = cfg.DATA_DIR / "municipais.gpkg"
+    OSM_GPKG_PATH = cfg.DATA_DIR / "osm.gpkg"
+    out_path = cfg.DATA_DIR / "app_corregos.gpkg"
+
     hidro = carregar_hidrografia()
     if hidro is None or hidro.empty:
         print("  [aviso] nenhuma hidrografia municipal nem OSM encontrada — "
               "app_corregos não calculado.")
         return
 
-    hidro = hidro.to_crs(CRS_PROJETO)
-    faixa = hidro.buffer(APP_LARGURA_MIN).union_all()
-    gdf = gpd.GeoDataFrame({"largura_m": [APP_LARGURA_MIN]}, geometry=[faixa], crs=CRS_PROJETO)
-    gdf.to_file(OUT_PATH, layer="app_corregos", driver="GPKG")
+    hidro = hidro.to_crs(cfg.CRS_PROJETO)
+    faixa = hidro.buffer(cfg.APP_LARGURA_MIN).union_all()
+    gdf = gpd.GeoDataFrame({"largura_m": [cfg.APP_LARGURA_MIN]}, geometry=[faixa], crs=cfg.CRS_PROJETO)
+    gdf.to_file(out_path, layer="app_corregos", driver="GPKG")
     area_ha = gdf.geometry.area.sum() / 1e4
-    print(f"  [app_corregos] faixa de {APP_LARGURA_MIN} m, {area_ha:.1f} ha → {OUT_PATH.name}")
+    print(f"  [app_corregos] faixa de {cfg.APP_LARGURA_MIN} m, {area_ha:.1f} ha → {out_path.name}")
+
+    print("\nConcluído.")
 
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

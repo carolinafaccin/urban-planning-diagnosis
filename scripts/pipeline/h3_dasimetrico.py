@@ -1,5 +1,5 @@
 """
-07_h3_dasimetrico.py
+h3_dasimetrico.py
 --------------------
 O que faz   : Monta a malha H3 (res do config) sobre a área de estudo e é a
               espinha dorsal da síntese: recebe os indicadores do Censo por
@@ -7,7 +7,7 @@ O que faz   : Monta a malha H3 (res do config) sobre a área de estudo e é a
               solo do CNEFE. Os scripts de raster (06 MapBiomas, 07 Cool Cities,
               queimadas, GEE) anexam suas colunas a esta mesma malha depois.
 Camadas     : h3_base (no {DATA_DIR}/h3.gpkg)
-Requer      : 02_download_ibge.py e 06_cnefe.py já rodados.
+Requer      : download_ibge.py e cnefe.py já rodados.
 Fonte       : {DATA_DIR}/ibge.gpkg (valores por setor) + os parquets do 04.
 
 Interpolação dasimétrica (setor → hexágono)
@@ -26,19 +26,19 @@ de setor entre hexágonos e só vale para contagens — aplicá-la a uma média
 per-domicílio subestima o valor (um hexágono tem só uma fração dos domicílios
 do setor). Domicílios por setor são contados no setor INTEIRO (o 04 capturou
 além do bbox), mas para média intensiva o que importa é o peso relativo dentro
-do hexágono. Ver o cabeçalho do 06_cnefe.py.
+do hexágono. Ver o cabeçalho do cnefe.py.
 
 Hexágonos sem domicílio (córrego, áreas verdes) são MANTIDOS na malha: os
 indicadores sociais ficam nulos ali (não há a quem atribuir), mas eles seguem
 recebendo os indicadores físicos (calor, verde, impermeável) dos scripts de
-raster. O 14_analises.py trata esses nulos explicitamente ao compor o score —
+raster. O analises.py trata esses nulos explicitamente ao compor o score —
 são justamente onde algumas intervenções (ex.: parques lineares) podem se localizar.
 
 Para adaptar: ajuste H3_RESOLUCAO no config.py. As variáveis interpoladas são
               detectadas por VARS_DASIMETRICAS abaixo.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/07_h3_dasimetrico.py
+              python ../../scripts/pipeline/h3_dasimetrico.py
 """
 
 import sys
@@ -49,20 +49,9 @@ import h3
 import pandas as pd
 from shapely.geometry import Polygon
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    BBOX,
-    CRS_PROJETO,
-    CRS_WGS84,
-    DATA_DIR,
-    H3_RESOLUCAO,
-    PROCESSED_DIR,
-)
-
-H3_GPKG_PATH = DATA_DIR / "h3.gpkg"
-IBGE_GPKG_PATH = DATA_DIR / "ibge.gpkg"
-USO_H3_PATH = PROCESSED_DIR / "cnefe_uso_h3.parquet"
-DOM_H3_SETOR_PATH = PROCESSED_DIR / "cnefe_dom_h3_setor.parquet"
+# Preenchidos por main(cfg) — usados como globais por malha_h3_do_bbox(),
+# chamada de dentro de main.
+CRS_PROJETO = CRS_WGS84 = None
 
 # Variáveis do Censo (camada setores_censitarios) que vão para os hexágonos por
 # interpolação dasimétrica. São valores já por-domicílio/percentuais, logo a
@@ -114,14 +103,24 @@ def interpolar_dasimetrico(setores, dom_h3_setor):
     return resultado.reset_index()
 
 
-def main():
-    print(f"Montando malha H3 res {H3_RESOLUCAO} sobre o bbox...")
-    hex_gdf = malha_h3_do_bbox(BBOX, H3_RESOLUCAO)
+def main(cfg):
+    global CRS_PROJETO, CRS_WGS84
+
+    CRS_PROJETO = cfg.CRS_PROJETO
+    CRS_WGS84 = cfg.CRS_WGS84
+
+    h3_gpkg_path = cfg.DATA_DIR / "h3.gpkg"
+    ibge_gpkg_path = cfg.DATA_DIR / "ibge.gpkg"
+    uso_h3_path = cfg.PROCESSED_DIR / "cnefe_uso_h3.parquet"
+    dom_h3_setor_path = cfg.PROCESSED_DIR / "cnefe_dom_h3_setor.parquet"
+
+    print(f"Montando malha H3 res {cfg.H3_RESOLUCAO} sobre o bbox...")
+    hex_gdf = malha_h3_do_bbox(cfg.BBOX, cfg.H3_RESOLUCAO)
     print(f"  {len(hex_gdf)} hexágonos cobrindo a área de estudo.")
 
-    setores = gpd.read_file(IBGE_GPKG_PATH, layer="setores_censitarios")
-    dom = pd.read_parquet(DOM_H3_SETOR_PATH)
-    uso = pd.read_parquet(USO_H3_PATH)
+    setores = gpd.read_file(ibge_gpkg_path, layer="setores_censitarios")
+    dom = pd.read_parquet(dom_h3_setor_path)
+    uso = pd.read_parquet(uso_h3_path)
 
     interp = interpolar_dasimetrico(setores, dom)
     hex_gdf = hex_gdf.merge(interp, on="h3_id", how="left")
@@ -136,14 +135,17 @@ def main():
     print(f"  {habitados} de {len(hex_gdf)} hexágonos têm domicílios (o resto fica "
           f"com indicadores sociais nulos — esperado).")
 
-    hex_gdf.to_file(H3_GPKG_PATH, layer="h3_base", driver="GPKG")
-    print(f"\n  [h3_base] {len(hex_gdf)} hexágonos salvos em {H3_GPKG_PATH}")
+    hex_gdf.to_file(h3_gpkg_path, layer="h3_base", driver="GPKG")
+    print(f"\n  [h3_base] {len(hex_gdf)} hexágonos salvos em {h3_gpkg_path}")
 
     print("\nResumo dos indicadores interpolados (hexágonos habitados):")
     hab = hex_gdf[hex_gdf["qtd_dom"] > 0]
     print(hab[["qtd_dom", "renda_media", "pct_sem_arb", "pct_sem_ilum"]].describe().round(1).to_string())
 
+    print("\nConcluído.")
+
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

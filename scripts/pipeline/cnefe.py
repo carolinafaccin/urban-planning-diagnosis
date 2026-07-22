@@ -1,5 +1,5 @@
 """
-06_cnefe.py
+cnefe.py
 -----------
 O que faz   : Varre o CNEFE 2022 da UF do projeto UMA vez, recorta os
               endereços dos setores da área de estudo e produz os insumos
@@ -9,14 +9,14 @@ O que faz   : Varre o CNEFE 2022 da UF do projeto UMA vez, recorta os
                 (b) uso do solo por hexágono H3 (contagem de endereços por
                     espécie — método da Ana Maffini);
                 (c) domicílios por (hexágono, setor) — peso da interpolação
-                    dasimétrica no 07_h3_dasimetrico.py.
+                    dasimétrica no h3_dasimetrico.py.
 Camadas     : — (só tabelas/parquet; a geometria dos hexágonos é montada no 05)
 Saídas      : {DATA_DIR}/processed/cnefe_recorte.parquet      (geoparquet, pontos)
               {DATA_DIR}/processed/cnefe_uso_h3.parquet        (h3_id → cat_*)
               {DATA_DIR}/processed/cnefe_dom_h3_setor.parquet  (h3_id, cd_setor → qtd_dom)
 Fonte       : raw_dir/ibge/censo/2022/cnefe/por_uf/{cod_uf}_*.csv
               (CSV por UF, sep=';', com latitude/longitude e cod_especie)
-Requer      : 02_download_ibge.py já rodado (usa {DATA_DIR}/ibge.gpkg como
+Requer      : download_ibge.py já rodado (usa {DATA_DIR}/ibge.gpkg como
               recorte espacial e fonte da chave cd_setor).
 
 DECISÃO DE CHAVE — LER ANTES DE MEXER
@@ -44,7 +44,7 @@ Para adaptar: nada específico de Campinas. Usa IBGE_COD_MUN (p/ achar a UF e
               filtrar o município) e H3_RESOLUCAO do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/06_cnefe.py
+              python ../../scripts/pipeline/cnefe.py
               (varredura de UF grande leva alguns minutos; é uma vez só.)
 """
 
@@ -55,25 +55,11 @@ import geopandas as gpd
 import h3
 import pandas as pd
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    CRS_PROJETO,
-    CRS_WGS84,
-    DATA_DIR,
-    H3_RESOLUCAO,
-    IBGE_COD_MUN,
-    PROCESSED_DIR,
-    RAW_CATALOG,
-)
-
-IBGE_GPKG_PATH = DATA_DIR / "ibge.gpkg"
-CNEFE_DIR = RAW_CATALOG / "ibge" / "censo" / "2022" / "cnefe" / "por_uf"
-
-RECORTE_PATH = PROCESSED_DIR / "cnefe_recorte.parquet"
-USO_H3_PATH = PROCESSED_DIR / "cnefe_uso_h3.parquet"
-DOM_H3_SETOR_PATH = PROCESSED_DIR / "cnefe_dom_h3_setor.parquet"
-
-COD_UF = IBGE_COD_MUN[:2]  # 2 primeiros dígitos do código do município = UF
+# Preenchidos por main(cfg) — usados como globais pelas funções auxiliares
+# abaixo (achar_csv_uf, limites_setores, varrer_cnefe, atribuir_setor),
+# chamadas de dentro de main.
+CRS_PROJETO = CRS_WGS84 = IBGE_COD_MUN = None
+IBGE_GPKG_PATH = CNEFE_DIR = COD_UF = None
 
 # Mapeamento COD_ESPECIE → categoria de uso (CNEFE 2022; ver dicionário e o
 # repo Codigo-CNEFE-2022 de Ana Luisa Maffini, github.com/anamaffini).
@@ -148,8 +134,21 @@ def atribuir_setor(df, setores):
     return joined
 
 
-def main():
-    print(f"CNEFE — município {IBGE_COD_MUN} (UF {COD_UF}), H3 res {H3_RESOLUCAO}\n")
+def main(cfg):
+    global CRS_PROJETO, CRS_WGS84, IBGE_COD_MUN, IBGE_GPKG_PATH, CNEFE_DIR, COD_UF
+
+    CRS_PROJETO = cfg.CRS_PROJETO
+    CRS_WGS84 = cfg.CRS_WGS84
+    IBGE_COD_MUN = cfg.IBGE_COD_MUN
+    IBGE_GPKG_PATH = cfg.DATA_DIR / "ibge.gpkg"
+    CNEFE_DIR = cfg.RAW_CATALOG / "ibge" / "censo" / "2022" / "cnefe" / "por_uf"
+    COD_UF = IBGE_COD_MUN[:2]  # 2 primeiros dígitos do código do município = UF
+
+    recorte_path = cfg.PROCESSED_DIR / "cnefe_recorte.parquet"
+    uso_h3_path = cfg.PROCESSED_DIR / "cnefe_uso_h3.parquet"
+    dom_h3_setor_path = cfg.PROCESSED_DIR / "cnefe_dom_h3_setor.parquet"
+
+    print(f"CNEFE — município {IBGE_COD_MUN} (UF {COD_UF}), H3 res {cfg.H3_RESOLUCAO}\n")
     setores, bounds = limites_setores()
     print(f"{len(setores)} setores na área; bounds WGS84 (O,S,L,N) = "
           f"({bounds[0]:.4f}, {bounds[1]:.4f}, {bounds[2]:.4f}, {bounds[3]:.4f})\n")
@@ -162,14 +161,14 @@ def main():
 
     # h3 res10 a partir das coordenadas WGS84 originais
     gdf["h3_id"] = [
-        h3.latlng_to_cell(lat, lon, H3_RESOLUCAO)
+        h3.latlng_to_cell(lat, lon, cfg.H3_RESOLUCAO)
         for lat, lon in zip(gdf["latitude"], gdf["longitude"])
     ]
 
     # (a) recorte reutilizável
     cols_recorte = ["cd_setor", "cod_especie", "dsc_estabelecimento", "h3_id", "geometry"]
-    gdf[cols_recorte].to_parquet(RECORTE_PATH)
-    print(f"\n  [recorte] {len(gdf):,} pontos → {RECORTE_PATH.name}")
+    gdf[cols_recorte].to_parquet(recorte_path)
+    print(f"\n  [recorte] {len(gdf):,} pontos → {recorte_path.name}")
 
     # (b) uso do solo por hexágono: one-hot de cod_especie → soma por h3
     cat = gdf["cod_especie"].map(ESPECIE_CAT).fillna("nao_classificado")
@@ -177,17 +176,17 @@ def main():
     onehot["h3_id"] = gdf["h3_id"].values
     uso = onehot.groupby("h3_id").sum()
     uso["total_enderecos"] = uso.sum(axis=1)
-    uso.reset_index().to_parquet(USO_H3_PATH)
-    print(f"  [uso_h3]  {len(uso):,} hexágonos com endereços → {USO_H3_PATH.name}")
+    uso.reset_index().to_parquet(uso_h3_path)
+    print(f"  [uso_h3]  {len(uso):,} hexágonos com endereços → {uso_h3_path.name}")
 
     # (c) domicílios particulares por (hexágono, setor) — peso dasimétrico
     dom = gdf[gdf["cod_especie"] == ESPECIE_DOMICILIO]
     dom_agg = (
         dom.groupby(["h3_id", "cd_setor"]).size().reset_index(name="qtd_dom")
     )
-    dom_agg.to_parquet(DOM_H3_SETOR_PATH)
+    dom_agg.to_parquet(dom_h3_setor_path)
     print(f"  [dom_h3]  {len(dom_agg):,} pares (h3,setor); "
-          f"{dom_agg['qtd_dom'].sum():,} domicílios → {DOM_H3_SETOR_PATH.name}")
+          f"{dom_agg['qtd_dom'].sum():,} domicílios → {dom_h3_setor_path.name}")
 
     # Resumo de uso do solo na área
     resumo = uso.drop(columns="total_enderecos").sum().sort_values(ascending=False)
@@ -196,7 +195,10 @@ def main():
         if v:
             print(f"  {k:28} {int(v):>7,}")
 
+    print("\nConcluído.")
+
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

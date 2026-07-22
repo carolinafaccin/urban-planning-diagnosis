@@ -1,9 +1,9 @@
 """
-02_download_ibge.py
+download_ibge.py
 -------------------
 O que faz   : Monta a camada de setores censitários da área de estudo, com
               os indicadores do Censo 2022 usados nos mapas 7, 8, 9 e 15 e
-              no score de prioridade do 14_analises.py. Também monta as
+              no score de prioridade do analises.py. Também monta as
               camadas de CONTEXTO para o mapa de localização (país > UF >
               município), a partir da malha municipal do IBGE.
 Camadas     : setores_censitarios (ibge.gpkg)
@@ -41,12 +41,12 @@ Notas sobre os dados
   no catálogo uma série paralela por MORADORES (V052xx, em
   percentuais_por_setor_gpkg/) — não misturar as duas.
 - `renda_media_norm` é a renda média invertida e normalizada [0,1] DENTRO da
-  área de estudo (maior = mais vulnerável), como o 14_analises.py espera.
+  área de estudo (maior = mais vulnerável), como o analises.py espera.
   Por ser relativa ao recorte, não é comparável entre projetos.
 
 Como rodar  : a partir da pasta do projeto (onde está o config.py):
               cd projetos/campinas
-              python ../../scripts/pipeline/02_download_ibge.py
+              python ../../scripts/pipeline/download_ibge.py
 """
 
 import sys
@@ -56,27 +56,12 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    BBOX,
-    CRS_PROJETO,
-    CRS_WGS84,
-    DATA_DIR,
-    IBGE_COD_MUN,
-    MUNICIPIO,
-    RAW_CATALOG,
-)
-
-IBGE_GPKG_PATH = DATA_DIR / "ibge.gpkg"
-LOCALIZACAO_GPKG_PATH = DATA_DIR / "localizacao.gpkg"
-
-CENSO_DIR = RAW_CATALOG / "ibge" / "censo" / "2022"
-MALHA_PATH = CENSO_DIR / "setores_censitarios" / "br_setores.gpkg"
-ENTORNO_PATH = CENSO_DIR / "entorno_domicilios" / "agregados_por_setor" / "entorno_domicilios.csv"
-RENDA_PATH = CENSO_DIR / "agregados_por_setores" / "t1" / "renda_responsavel.csv"
-
-MALHA_MUNICIPAL_DIR = RAW_CATALOG / "ibge" / "malha_municipal" / "2024"
-COD_UF = IBGE_COD_MUN[:2]
+# Preenchidos por main(cfg) — usados como globais pelas funções auxiliares
+# abaixo (carregar_malha, gerar_localizacao), chamadas de dentro de main.
+BBOX = CRS_PROJETO = CRS_WGS84 = IBGE_COD_MUN = MUNICIPIO = None
+IBGE_GPKG_PATH = LOCALIZACAO_GPKG_PATH = None
+MALHA_PATH = ENTORNO_PATH = RENDA_PATH = None
+MALHA_MUNICIPAL_DIR = COD_UF = None
 
 # Variáveis do bloco "entorno dos domicílios" (contagem de domicílios).
 # Ver _dicionario_entorno_domicilios.xlsx no catálogo.
@@ -188,7 +173,32 @@ def gerar_localizacao():
     )
 
 
-def main():
+def main(cfg):
+    global BBOX, CRS_PROJETO, CRS_WGS84, IBGE_COD_MUN, MUNICIPIO
+    global IBGE_GPKG_PATH, LOCALIZACAO_GPKG_PATH
+    global MALHA_PATH, ENTORNO_PATH, RENDA_PATH
+    global MALHA_MUNICIPAL_DIR, COD_UF
+
+    BBOX = cfg.BBOX
+    CRS_PROJETO = cfg.CRS_PROJETO
+    CRS_WGS84 = cfg.CRS_WGS84
+    IBGE_COD_MUN = cfg.IBGE_COD_MUN
+    MUNICIPIO = cfg.MUNICIPIO
+
+    IBGE_GPKG_PATH = cfg.DATA_DIR / "ibge.gpkg"
+    LOCALIZACAO_GPKG_PATH = cfg.DATA_DIR / "localizacao.gpkg"
+
+    censo_dir = cfg.RAW_CATALOG / "ibge" / "censo" / "2022"
+    MALHA_PATH = censo_dir / "setores_censitarios" / "br_setores.gpkg"
+    ENTORNO_PATH = censo_dir / "entorno_domicilios" / "agregados_por_setor" / "entorno_domicilios.csv"
+    RENDA_PATH = censo_dir / "agregados_por_setores" / "t1" / "renda_responsavel.csv"
+
+    MALHA_MUNICIPAL_DIR = cfg.RAW_CATALOG / "ibge" / "malha_municipal" / "2024"
+    COD_UF = IBGE_COD_MUN[:2]
+
+    print(f"Área de estudo (WGS84): {BBOX}")
+    print(f"Destino: {IBGE_GPKG_PATH}\n")
+
     setores = carregar_malha()
 
     print("Lendo entorno dos domicílios (Censo 2022)...")
@@ -206,7 +216,7 @@ def main():
     for destino, origem in PERCENTUAIS.items():
         setores[destino] = setores[origem] / total * 100
 
-    # Renda invertida e normalizada — o que o 14_analises.py usa como vuln_social
+    # Renda invertida e normalizada — o que o analises.py usa como vuln_social
     setores["renda_media_norm"] = normalizar_invertido(setores["renda_media"])
 
     sem_entorno = int(setores["domicilios_entorno"].isna().sum())
@@ -232,9 +242,10 @@ def main():
 
     gerar_localizacao()
 
+    print("\nConcluído.")
+
 
 if __name__ == "__main__":
-    print(f"Área de estudo (WGS84): {BBOX}")
-    print(f"Destino: {IBGE_GPKG_PATH}\n")
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

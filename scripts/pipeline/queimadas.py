@@ -1,5 +1,5 @@
 """
-11_queimadas.py
+queimadas.py
 ---------------
 O que faz   : Conta focos de calor/queimadas (INPE) por hexágono da malha H3,
               somando todos os anos disponíveis. Gera o mapa de focos e um
@@ -7,7 +7,7 @@ O que faz   : Conta focos de calor/queimadas (INPE) por hexágono da malha H3,
 Saída       : {DATA_DIR}/processed/h3_queimadas.parquet (h3_id → n_focos, ...)
 Fonte       : raw_dir/inpe/queimadas/<ano>.csv (um CSV por ano, 2014–2025,
               com latitude/longitude e risco_fogo)
-Requer      : 07_h3_dasimetrico.py já rodado (geometria/ids de h3_base).
+Requer      : h3_dasimetrico.py já rodado (geometria/ids de h3_base).
 
 Nota de expectativa
 -------------------
@@ -19,7 +19,7 @@ rural. Hexágonos sem foco recebem n_focos = 0.
 Para adaptar: nada específico. Usa o BBOX do config.py para recortar os focos.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/11_queimadas.py
+              python ../../scripts/pipeline/queimadas.py
 """
 
 import sys
@@ -29,12 +29,10 @@ import geopandas as gpd
 import h3
 import pandas as pd
 
-sys.path.insert(0, str(Path.cwd()))
-from config import BBOX, DATA_DIR, H3_RESOLUCAO, PROCESSED_DIR, RAW_CATALOG  # noqa: E402
-
-H3_GPKG_PATH = DATA_DIR / "h3.gpkg"
-OUT_PATH = PROCESSED_DIR / "h3_queimadas.parquet"
-QUEIMADAS_DIR = RAW_CATALOG / "inpe" / "queimadas"
+# Preenchidos por main(cfg) — usados como globais por carregar_focos_bbox(),
+# chamada de dentro de main.
+BBOX = None
+QUEIMADAS_DIR = None
 
 
 def carregar_focos_bbox():
@@ -54,8 +52,15 @@ def carregar_focos_bbox():
     )
 
 
-def main():
-    hex_gdf = gpd.read_file(H3_GPKG_PATH, layer="h3_base")[["h3_id"]]
+def main(cfg):
+    global BBOX, QUEIMADAS_DIR
+
+    BBOX = cfg.BBOX
+    QUEIMADAS_DIR = cfg.RAW_CATALOG / "inpe" / "queimadas"
+    h3_gpkg_path = cfg.DATA_DIR / "h3.gpkg"
+    out_path = cfg.PROCESSED_DIR / "h3_queimadas.parquet"
+
+    hex_gdf = gpd.read_file(h3_gpkg_path, layer="h3_base")[["h3_id"]]
 
     print("Lendo focos de queimada (INPE)...")
     focos = carregar_focos_bbox()
@@ -63,7 +68,7 @@ def main():
 
     if len(focos):
         focos["h3_id"] = [
-            h3.latlng_to_cell(lat, lon, H3_RESOLUCAO)
+            h3.latlng_to_cell(lat, lon, cfg.H3_RESOLUCAO)
             for lat, lon in zip(focos["latitude"], focos["longitude"])
         ]
         agg = focos.groupby("h3_id").agg(
@@ -75,12 +80,15 @@ def main():
 
     resultado = hex_gdf.merge(agg, on="h3_id", how="left")
     resultado["n_focos"] = resultado["n_focos"].fillna(0).astype(int)
-    resultado.to_parquet(OUT_PATH)
+    resultado.to_parquet(out_path)
 
     print(f"\n  [h3_queimadas] {len(resultado)} hexágonos "
-          f"({int((resultado['n_focos'] > 0).sum())} com ao menos 1 foco) → {OUT_PATH.name}")
+          f"({int((resultado['n_focos'] > 0).sum())} com ao menos 1 foco) → {out_path.name}")
+
+    print("\nConcluído.")
 
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

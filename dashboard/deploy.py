@@ -15,7 +15,7 @@ Uso         : a partir da pasta do projeto (onde está o config.py):
                                                                    # antes de publicar
                                                                    # no branch definitivo)
 Requer      : Node.js + wrangler autenticado (`wrangler login`); GeoPackage do
-              projeto já construído (13_build_geopackage.py + 14_analises.py).
+              projeto já construído (build_geopackage.py + analises.py).
 Config      : lê PAGES_PROJECT/PAGES_BRANCH do config.py do projeto. Genérico —
               para publicar outro projeto, rode a partir da pasta dele.
 Privacidade : quem restringe o acesso (allowlist de e-mails) é o Cloudflare
@@ -32,24 +32,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_PREP = SCRIPT_DIR / "data_prep" / "build_web_assets.py"
 
 
-def main():
-    if not Path("config.py").exists():
-        sys.exit(
-            "erro: rode a partir da pasta do projeto (onde está o config.py).\n"
-            "  ex.: cd projetos/campinas && python ../../dashboard/deploy.py"
-        )
+def main(cfg, skip_data=False, branch=None):
+    """skip_data=True pula a regeneração de report.json/imgs — usado pelo
+    orquestrador (run.py) quando o passo build_web_assets já rodou logo
+    antes deste no mesmo manifesto; no uso standalone (CLI), o padrão é
+    regenerar (equivalente a não passar --skip-data)."""
+    branch = branch or cfg.PAGES_BRANCH
 
-    sys.path.insert(0, str(Path.cwd()))
-    from config import PAGES_BRANCH, PAGES_PROJECT  # noqa: E402
-
-    ap = argparse.ArgumentParser(description="Deploy do dashboard/ no Cloudflare Pages.")
-    ap.add_argument("--skip-data", action="store_true",
-                     help="Não regenera report.json/imgs antes do deploy.")
-    ap.add_argument("--branch", default=PAGES_BRANCH,
-                     help=f"Sobrescreve o branch de deploy (padrão: {PAGES_BRANCH}).")
-    args = ap.parse_args()
-
-    if not args.skip_data:
+    if not skip_data:
         print("==> gerando report.json + imagens...")
         subprocess.run([sys.executable, str(DATA_PREP)], check=True)
 
@@ -61,15 +51,31 @@ def main():
         sys.exit(f"erro: build não produziu {dist_dir / 'index.html'}")
 
     print(f"==> publicando {dist_dir}")
-    print(f"    projeto Pages: {PAGES_PROJECT}  (branch: {args.branch})")
-    print(f"    URL: https://{args.branch}.{PAGES_PROJECT}.pages.dev")
+    print(f"    projeto Pages: {cfg.PAGES_PROJECT}  (branch: {branch})")
+    print(f"    URL: https://{branch}.{cfg.PAGES_PROJECT}.pages.dev")
     subprocess.run(
         ["wrangler", "pages", "deploy", str(dist_dir),
-         "--project-name", PAGES_PROJECT, "--branch", args.branch],
+         "--project-name", cfg.PAGES_PROJECT, "--branch", branch],
         check=True,
     )
 
 
 if __name__ == "__main__":
-    main()
+    if not Path("config.py").exists():
+        sys.exit(
+            "erro: rode a partir da pasta do projeto (onde está o config.py).\n"
+            "  ex.: cd projetos/campinas && python ../../dashboard/deploy.py"
+        )
+
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+
+    ap = argparse.ArgumentParser(description="Deploy do dashboard/ no Cloudflare Pages.")
+    ap.add_argument("--skip-data", action="store_true",
+                     help="Não regenera report.json/imgs antes do deploy.")
+    ap.add_argument("--branch", default=config.PAGES_BRANCH,
+                     help=f"Sobrescreve o branch de deploy (padrão: {config.PAGES_BRANCH}).")
+    args = ap.parse_args()
+
+    main(config, skip_data=args.skip_data, branch=args.branch)
     print("\nConcluído.")

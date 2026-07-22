@@ -1,5 +1,5 @@
 """
-10_cool_cities.py
+cool_cities.py
 -----------------
 O que faz   : Agrega os rasters do Cool Cities Lab por hexágono da malha
               H3, via estatística zonal (média). Fornece LST, cobertura vegetal
@@ -10,7 +10,7 @@ Saída       : {DATA_DIR}/processed/h3_cool_cities.parquet (h3_id → colunas)
 Fonte       : raw_dir/wri/cool-cities-lab/BRA-<Cidade>/
                 baseline/    — rasters da mancha urbana (cobrem a cidade toda)
                 scenarios/   — rasters da "accelerator_area" (≈ área de estudo)
-Requer      : 07_h3_dasimetrico.py já rodado (geometria de h3_base).
+Requer      : h3_dasimetrico.py já rodado (geometria de h3_base).
 
 Cobertura / disponibilidade
 ---------------------------
@@ -28,7 +28,7 @@ Para adaptar: aponte CCL_DIR para a pasta BRA-<Cidade> correspondente. A lista
               revisar se a nomenclatura do CCL mudar.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/10_cool_cities.py
+              python ../../scripts/pipeline/cool_cities.py
 """
 
 import sys
@@ -39,14 +39,9 @@ import pandas as pd
 import rasterio
 from rasterstats import zonal_stats
 
-sys.path.insert(0, str(Path.cwd()))
-from config import DATA_DIR, MUNICIPIO, PROCESSED_DIR, RAW_CATALOG  # noqa: E402
-
-H3_GPKG_PATH = DATA_DIR / "h3.gpkg"
-OUT_PATH = PROCESSED_DIR / "h3_cool_cities.parquet"
-
-# Pasta da cidade no catálogo CCL. MUNICIPIO="Campinas" → "BRA-Campinas".
-CCL_DIR = RAW_CATALOG / "wri" / "cool-cities-lab" / f"BRA-{MUNICIPIO}"
+# Preenchido por main(cfg) — usado como global por achar(), chamada de
+# dentro de main.
+CCL_DIR = None
 
 # coluna de saída → (subpasta relativa ao CCL_DIR, padrão glob do arquivo).
 # Seleção curada; há mais rasters na pasta baseline/ se precisar.
@@ -76,14 +71,21 @@ def achar(subpasta, padrao):
     return matches[0] if matches else None
 
 
-def main():
+def main(cfg):
+    global CCL_DIR
+
+    # Pasta da cidade no catálogo CCL. MUNICIPIO="Campinas" → "BRA-Campinas".
+    CCL_DIR = cfg.RAW_CATALOG / "wri" / "cool-cities-lab" / f"BRA-{cfg.MUNICIPIO}"
+    h3_gpkg_path = cfg.DATA_DIR / "h3.gpkg"
+    out_path = cfg.PROCESSED_DIR / "h3_cool_cities.parquet"
+
     if not CCL_DIR.exists():
         raise FileNotFoundError(
             f"Pasta Cool Cities não encontrada: {CCL_DIR}. Se esta cidade não tem "
             f"dado no CCL, use a extração via GEE (fallback) em vez deste script."
         )
 
-    hex_gdf = gpd.read_file(H3_GPKG_PATH, layer="h3_base")[["h3_id", "geometry"]]
+    hex_gdf = gpd.read_file(h3_gpkg_path, layer="h3_base")[["h3_id", "geometry"]]
     resultado = pd.DataFrame({"h3_id": hex_gdf["h3_id"]})
 
     for coluna, (subpasta, padrao) in RASTERS.items():
@@ -99,11 +101,14 @@ def main():
         n_ok = resultado[coluna].notna().sum()
         print(f"  [{coluna}] {n_ok}/{len(hex_gdf)} hexágonos com valor  ({tif.name[:60]}...)")
 
-    resultado.to_parquet(OUT_PATH)
+    resultado.to_parquet(out_path)
     print(f"\n  [h3_cool_cities] {len(resultado)} hexágonos, "
-          f"{len(resultado.columns)-1} colunas → {OUT_PATH.name}")
+          f"{len(resultado.columns)-1} colunas → {out_path.name}")
+
+    print("\nConcluído.")
 
 
 if __name__ == "__main__":
-    main()
-    print("\nConcluído.")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

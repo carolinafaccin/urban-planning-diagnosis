@@ -1,5 +1,5 @@
 """
-13_build_geopackage.py
+build_geopackage.py
 ----------------------
 O que faz   : Consolida tudo no GeoPackage final do projeto. Junta os
               enriquecimentos por hexágono (Censo dasimétrico + uso do solo +
@@ -10,7 +10,7 @@ O que faz   : Consolida tudo no GeoPackage final do projeto. Junta os
 Camadas     : h3_indicadores (hexágonos com todos os indicadores, sem score)
               + viario, edificacoes, setores_censitarios, pontos_onibus,
                 ciclovia, parques_osm, app_corregos, pais/uf/municipios_uf
-                (mapa de localização, ver 02_download_ibge.py), as camadas
+                (mapa de localização, ver download_ibge.py), as camadas
                 municipais e locais que existirem
               + _metadados
 Saída       : {DATA_DIR}/{PROJECT_NAME}.gpkg
@@ -19,19 +19,19 @@ Requer      : 07 (h3_base) e, idealmente, 08/10/11/03/04/05/09.
               o que existe.
 
 Viário: se {DATA_DIR}/viario_enriquecido.gpkg existir (gerado pelo
-04_dados_municipais.py quando há classificacao_viaria municipal), ele é
+dados_municipais.py quando há classificacao_viaria municipal), ele é
 usado no lugar do viário puro do osm.gpkg — mesma topologia OSM, com a coluna
 extra pmc_classifica anexada (primeira fonte existente vence, mesmo
-mecanismo do 14_analises.py::INDICADORES). A camada municipal nunca substitui
+mecanismo do analises.py::INDICADORES). A camada municipal nunca substitui
 a topologia, só a enriquece.
 
-O score de prioridade e as análises derivadas ficam no 14_analises.py, que lê
+O score de prioridade e as análises derivadas ficam no analises.py, que lê
 h3_indicadores e grava h3_sintese neste mesmo .gpkg.
 
 Para adaptar: nada. Descobre as fontes pelos caminhos do config.py.
 
 Como rodar  : cd projetos/campinas
-              python ../../scripts/pipeline/13_build_geopackage.py
+              python ../../scripts/pipeline/build_geopackage.py
 """
 
 import sys
@@ -41,46 +41,10 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-sys.path.insert(0, str(Path.cwd()))
-from config import (  # noqa: E402
-    CRS_PROJETO,
-    DATA_DIR,
-    GPKG_PATH,
-    PROCESSED_DIR,
-    PROJECT_NAME,
-)
-
-H3_GPKG_PATH = DATA_DIR / "h3.gpkg"
-EDIF_GPKG_PATH = DATA_DIR / "edificacoes.gpkg"
-VIARIO_ENRIQUECIDO_PATH = DATA_DIR / "viario_enriquecido.gpkg"
-MUNICIPAIS_GPKG_PATH = DATA_DIR / "municipais.gpkg"
-
-# Enriquecimentos por hexágono (parquet, chaveados por h3_id)
-ENRIQUECIMENTOS = [
-    PROCESSED_DIR / "h3_mapbiomas.parquet",
-    PROCESSED_DIR / "h3_cool_cities.parquet",
-    PROCESSED_DIR / "h3_queimadas.parquet",
-    PROCESSED_DIR / "h3_gee.parquet",  # opcional (fallback GEE)
-    PROCESSED_DIR / "h3_municipal.parquet",  # opcional (fallback municipal)
-]
-
-# Camadas vetoriais a copiar: (gpkg de origem, nome da camada). O viário
-# prefere a versão enriquecida com classificação municipal, se existir
-# (primeira fonte existente vence — nunca as duas ao mesmo tempo).
-VETORES = [
-    (VIARIO_ENRIQUECIDO_PATH if VIARIO_ENRIQUECIDO_PATH.exists() else DATA_DIR / "osm.gpkg", "viario"),
-    (DATA_DIR / "osm.gpkg", "parques_osm"),
-    (DATA_DIR / "osm.gpkg", "ciclovia"),
-    (DATA_DIR / "osm.gpkg", "pontos_onibus"),
-    (DATA_DIR / "ibge.gpkg", "setores_censitarios"),
-    (EDIF_GPKG_PATH, "edificacoes"),
-    (DATA_DIR / "app_corregos.gpkg", "app_corregos"),  # opcional (05)
-    # mapa de localização (país/UF/município) — ver nota no 02_download_ibge.py:
-    # únicas camadas do pipeline que NÃO são recortadas pelo BBOX do projeto.
-    (DATA_DIR / "localizacao.gpkg", "pais"),
-    (DATA_DIR / "localizacao.gpkg", "uf"),
-    (DATA_DIR / "localizacao.gpkg", "municipios_uf"),
-]
+# Preenchidos por main(cfg) — usados como globais por fracao_construida(),
+# chamada de dentro de main.
+CRS_PROJETO = None
+EDIF_GPKG_PATH = None
 
 
 def fracao_construida(hex_gdf):
@@ -105,11 +69,50 @@ def fracao_construida(hex_gdf):
     return hex_gdf
 
 
-def main():
-    print("Montando hexágonos com todos os indicadores...")
-    hex_gdf = gpd.read_file(H3_GPKG_PATH, layer="h3_base")
+def main(cfg):
+    global CRS_PROJETO, EDIF_GPKG_PATH
 
-    for caminho in ENRIQUECIMENTOS:
+    CRS_PROJETO = cfg.CRS_PROJETO
+    DATA_DIR = cfg.DATA_DIR
+    PROCESSED_DIR = cfg.PROCESSED_DIR
+    GPKG_PATH = cfg.GPKG_PATH
+
+    h3_gpkg_path = DATA_DIR / "h3.gpkg"
+    EDIF_GPKG_PATH = DATA_DIR / "edificacoes.gpkg"
+    viario_enriquecido_path = DATA_DIR / "viario_enriquecido.gpkg"
+    municipais_gpkg_path = DATA_DIR / "municipais.gpkg"
+
+    # Enriquecimentos por hexágono (parquet, chaveados por h3_id)
+    enriquecimentos = [
+        PROCESSED_DIR / "h3_mapbiomas.parquet",
+        PROCESSED_DIR / "h3_cool_cities.parquet",
+        PROCESSED_DIR / "h3_queimadas.parquet",
+        PROCESSED_DIR / "h3_gee.parquet",  # opcional (fallback GEE)
+        PROCESSED_DIR / "h3_municipal.parquet",  # opcional (fallback municipal)
+    ]
+
+    # Camadas vetoriais a copiar: (gpkg de origem, nome da camada). O viário
+    # prefere a versão enriquecida com classificação municipal, se existir
+    # (primeira fonte existente vence — nunca as duas ao mesmo tempo).
+    vetores = [
+        (viario_enriquecido_path if viario_enriquecido_path.exists() else DATA_DIR / "osm.gpkg", "viario"),
+        (DATA_DIR / "osm.gpkg", "parques_osm"),
+        (DATA_DIR / "osm.gpkg", "ciclovia"),
+        (DATA_DIR / "osm.gpkg", "pontos_onibus"),
+        (DATA_DIR / "ibge.gpkg", "setores_censitarios"),
+        (EDIF_GPKG_PATH, "edificacoes"),
+        (DATA_DIR / "app_corregos.gpkg", "app_corregos"),  # opcional (05)
+        # mapa de localização (país/UF/município) — ver nota no download_ibge.py:
+        # únicas camadas do pipeline que NÃO são recortadas pelo BBOX do projeto.
+        (DATA_DIR / "localizacao.gpkg", "pais"),
+        (DATA_DIR / "localizacao.gpkg", "uf"),
+        (DATA_DIR / "localizacao.gpkg", "municipios_uf"),
+    ]
+
+    print("Montando hexágonos com todos os indicadores...")
+    hex_gdf = gpd.read_file(h3_gpkg_path, layer="h3_base")
+
+    for caminho in enriquecimentos:
         if caminho.exists():
             df = pd.read_parquet(caminho)
             novas = [c for c in df.columns if c != "h3_id"]
@@ -128,7 +131,7 @@ def main():
     metadados = [{"camada": "h3_indicadores", "n_feicoes": len(hex_gdf),
                   "fonte": "05+06+07+08+03", "gerado_em": str(date.today())}]
 
-    for origem, camada in VETORES:
+    for origem, camada in vetores:
         if not origem.exists():
             print(f"  [aviso] {origem.name}::{camada} não existe — pulado.")
             continue
@@ -139,11 +142,11 @@ def main():
         print(f"  [{camada}] {len(gdf)} feições copiadas")
 
     # Camadas municipais (o que o 04 tiver produzido) — 'viario' fica de fora
-    # daqui porque já foi resolvido em VETORES (enriquecido ou não).
-    if MUNICIPAIS_GPKG_PATH.exists():
+    # daqui porque já foi resolvido em vetores (enriquecido ou não).
+    if municipais_gpkg_path.exists():
         import pyogrio
-        for camada in pyogrio.list_layers(MUNICIPAIS_GPKG_PATH)[:, 0]:
-            gdf = gpd.read_file(MUNICIPAIS_GPKG_PATH, layer=camada).to_crs(CRS_PROJETO)
+        for camada in pyogrio.list_layers(municipais_gpkg_path)[:, 0]:
+            gdf = gpd.read_file(municipais_gpkg_path, layer=camada).to_crs(CRS_PROJETO)
             gdf.to_file(GPKG_PATH, layer=camada, driver="GPKG")
             metadados.append({"camada": camada, "n_feicoes": len(gdf),
                               "fonte": "municipal (PMC)", "gerado_em": str(date.today())})
@@ -163,7 +166,10 @@ def main():
     pd.DataFrame(metadados).to_csv(DATA_DIR / "_metadados.csv", index=False)
     print(f"\n  _metadados: {len(metadados)} camadas registradas.")
 
+    print(f"\nConcluído. GeoPackage final: {GPKG_PATH}")
+
 
 if __name__ == "__main__":
-    main()
-    print(f"\nConcluído. GeoPackage final: {GPKG_PATH}")
+    sys.path.insert(0, str(Path.cwd()))
+    import config
+    main(config)

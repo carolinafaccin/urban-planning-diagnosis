@@ -19,7 +19,7 @@ Entrada     : {RAW_CATALOG}/h3/br_h3_res9.parquet (grade nacional res9,
 Método e limitação conhecida
 -----------------------------
 Não existe (ainda) um join CNEFE→res10 nacional — refazer isso na resolução
-fina para o Brasil inteiro é um job à parte (nos moldes de 06_cnefe.py),
+fina para o Brasil inteiro é um job à parte (nos moldes de cnefe.py),
 fora do escopo deste script. Em vez disso, cada célula res9 é subdividida
 nas suas 7 células-filhas res10 (`h3.cell_to_children`), e cada filha HERDA
 os metadados da célula-mãe (cd_setor, cd_mun, cd_uf, qtd_dom) — ou seja,
